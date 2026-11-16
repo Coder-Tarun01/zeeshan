@@ -9,6 +9,8 @@ interface SectionHeadingProps {
   align?: 'left' | 'center'
   className?: string
   id?: string
+  /** Use `1` on standalone pages so each page has a single h1. */
+  level?: 1 | 2
 }
 
 export function SectionHeading({
@@ -18,8 +20,10 @@ export function SectionHeading({
   align = 'left',
   className,
   id,
+  level = 2,
 }: SectionHeadingProps) {
   const centered = align === 'center'
+  const Heading = level === 1 ? 'h1' : 'h2'
 
   return (
     <div className={cn(centered && 'mx-auto text-center', className)}>
@@ -37,7 +41,7 @@ export function SectionHeading({
       </Reveal>
 
       <Reveal delay={80}>
-        <h2
+        <Heading
           id={id}
           className={cn(
             'mt-5 font-display text-[clamp(2rem,4.6vw,3.65rem)] font-medium leading-[1.06] tracking-[-0.01em] text-cream',
@@ -45,7 +49,7 @@ export function SectionHeading({
           )}
         >
           {title}
-        </h2>
+        </Heading>
       </Reveal>
 
       {description && (

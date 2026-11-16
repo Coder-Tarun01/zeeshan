@@ -10,7 +10,7 @@ replaced with the client's own photography before launch (see `README.md`, secti
 | `menu-chicken-pakodi.jpg` | Wikimedia Commons — [File:Chicken pakora and sauce.jpg](https://commons.wikimedia.org/wiki/File:Chicken_pakora_and_sauce.jpg) |
 | `menu-chicken-joint.jpg` | StockSnap (CC0) — [Fried Chicken](https://stocksnap.io/photo/fried-chicken-VYTEWBJEXM) by Mike Moloney |
 | `menu-chicken-lollipop.jpg` | Wikimedia Commons — [File:Chicken lollipop in Goa.jpg](https://commons.wikimedia.org/wiki/File:Chicken_lollipop_in_Goa.jpg) |
-| `menu-reshma.jpg` | Wikimedia Commons — [File:Chicken 65 (Dish).jpg](https://commons.wikimedia.org/wiki/File:Chicken_65_(Dish).jpg) |
+| `menu-reshma.jpg` | Wikimedia Commons — [File:Fried Chicken (Unsplash).jpg](https://commons.wikimedia.org/wiki/File:Fried_Chicken_(Unsplash).jpg) |
 | `menu-vuda.jpg` | Wikimedia Commons — [File:Chicken lollypops'.jpg](https://commons.wikimedia.org/wiki/File:Chicken_lollypops%27.jpg) |
 | `special-pakodi.jpg` | Wikimedia Commons — [File:Chicken Pakora - Kolkata 2013-10-11 3286.JPG](https://commons.wikimedia.org/wiki/File:Chicken_Pakora_-_Kolkata_2013-10-11_3286.JPG) |
 | `special-lollipop.jpg` | Wikimedia Commons — [File:Chicken Lollipop.jpg](https://commons.wikimedia.org/wiki/File:Chicken_Lollipop.jpg) |

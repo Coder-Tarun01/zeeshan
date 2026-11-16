@@ -1,3 +1,3 @@
-# Static hosts: serve the SPA for the /bag route.
+# Static hosts: serve the SPA for every route (/menu, /about, /bag, /checkout …).
 # Netlify and Cloudflare Pages read this file automatically.
-/bag  /index.html  200
+/*  /index.html  200

@@ -32,15 +32,17 @@ fallback — nothing is invented.
 | `addressLine` / `addressArea` | Shop address | `Shop 4, Main Road` / `Old City 500002` |
 | `hours` | One row per timing block | `{ days: 'Mon – Sun', time: '12pm – 11:30pm' }` |
 | `mapsEmbedUrl` | Maps → Share → Embed a map → `src` value | `https://www.google.com/maps/embed?...` |
-| `mapsLink` | Normal Maps place link for "Get directions" | `https://maps.app.goo.gl/...` |
+| `mapsLink` | Shop's Maps place link (Share → Copy link) — powers "Get directions" / "Open in Google Maps" and the footer address link | `https://maps.app.goo.gl/...` |
 | `socials` | Instagram / Facebook / YouTube profile URLs | `https://instagram.com/...` |
 
 **Until `whatsapp` is filled in**, every "Order Now" button still builds the full message and opens
 WhatsApp's composer so the customer can pick the chat. Once the number is added, the same buttons
 open a direct chat with ZEESHAN — no other changes needed.
 
-> **Current status:** the shop number **+91 7036369022** is already configured for both tap-to-call
-> (`phone`) and WhatsApp ordering (`whatsapp`), so all call buttons and direct chat links are live.
+> **Current status:** the shop number **+91 7036369022** is configured for both tap-to-call (`phone`)
+> and WhatsApp ordering (`whatsapp`), and the address is set to *Opposite Indian Oil Petrol Bunk, Near
+> Ghati Center, Kakinada, Andhra Pradesh 533016*. No email address was supplied, so the Email row on
+> `/contact` stays hidden — add `email` in `src/data/site.ts` and it appears automatically.
 
 The same applies to the phone number: call buttons appear automatically once `phone` is set. Social
 links only render when a URL exists, so there are no dead links.
@@ -101,16 +103,23 @@ The **storefront photo** belongs in the gallery brand tile and the About collage
    items on the left — photo, weight, quantity, price, remove — and the **Order Summary** on the
    right with subtotal, **total amount**, **Proceed to Checkout**, **Continue Shopping** and the
    **Free Delivery / On orders above ₹1000** offer.
-4. **Send Order on WhatsApp** (checkout) sends one consolidated message, e.g.:
+4. **Checkout** (`/checkout`) collects the delivery details, then **Place Order** opens WhatsApp with
+   the whole order plus the address — one consolidated message, e.g.:
 
    ```
    Hello ZEESHAN!
 
-   I would like to order:
-   • 2 x Chicken Pakodi
-   • 1 x Chicken Lollipop (extra spicy)
+   I would like to place an order:
+   • 2 x Chicken Pakodi — 250g (Extra spicy)
+   • 1 x Vuda — 500g
 
-   Please confirm availability and the total. Thank you!
+   Delivery details
+   Name: Ali Khan
+   Mobile: 7036369022
+   Address: 12-A, Near the temple, Kochi, Kerala - 682001
+   Email: ali@example.com
+
+   Please confirm availability, the total and delivery. Thank you!
    ```
 
 The bag is written to `localStorage` **synchronously on every change** (`zeeshan:order-bag:v1`), so the
@@ -119,14 +128,45 @@ If `localStorage` is blocked — e.g. some private-mode browsers — it falls ba
 Identical lines merge by item + note. The gold badge on the navbar bag icon shows how many items are
 waiting.
 
-**Routing / hosting:** `/bag` is a real page handled by a tiny History-API router
-(`src/lib/router.ts`) — no router dependency, no extra bundle. Static hosts must serve `index.html`
-for `/bag`: `public/_redirects` covers Netlify and Cloudflare Pages. On Vercel add a rewrite
-(`{ "source": "/bag", "destination": "/index.html" }`); on Apache use a `.htaccess` fallback.
-`Continue Shopping` returns home and scrolls to the menu; in-page anchors (`#menu`, `#contact`…) also
-work from `/bag`.
+**Routing / hosting:** every section is a real page (`/`, `/menu`, `/about`, `/chicken-specials`,
+`/gallery`, `/contact`, `/bag`, `/checkout`, `/terms`) served by a tiny History-API router
+(`src/lib/router.ts`) — no hash URLs, no router dependency. Unknown paths render a styled 404 page.
+Internal links are intercepted so navigation happens inside the SPA, and `#anchor` links
+(e.g. `/terms#cancellation`) scroll to the matching section. Static hosts must serve
+`index.html` for these paths: `public/_redirects` (catch-all) covers Netlify and Cloudflare Pages.
+On Vercel add a rewrite (`{ "source": "/(.*)", "destination": "/index.html" }`); on Apache use a
+`.htaccess` fallback.
 
-Templates live in `src/lib/whatsapp.ts` (`buildOrderMessage`, `buildBagMessage`, `buildEnquiryMessage`).
+| Route | Page |
+| --- | --- |
+| `/` | Home — hero, marquee, page shortcuts, why ZEESHAN |
+| `/menu` | Menu — signature items with portions + Mutton & Chicken |
+| `/about` | About ZEESHAN |
+| `/chicken-specials` | Chicken Specials |
+| `/gallery` | Food gallery |
+| `/contact` | Contact & location |
+| `/bag` | Order bag + summary |
+| `/checkout` | Delivery form + summary + Place Order |
+| `/terms` | Terms & Conditions (linked from the footer + checkout checkbox) |
+
+Templates live in `src/lib/whatsapp.ts` (`buildOrderMessage`, `buildBagMessage`, `buildCheckoutMessage`,
+`buildContactMessage`, `buildEnquiryMessage`).
+
+**Contact form:** `/contact` keeps the shop details on the left and a **WhatsApp enquiry form** on the
+right (`src/components/forms/ContactForm.tsx`) — Name\*, Phone Number, Email, Description\*, then
+**Send via WhatsApp**. Name and Description are required; phone/email are optional but validated when
+filled. The map sits full-width beneath both columns.
+
+**Delivery promo:** `business.delivery.banner` — *"Orders above ₹1000 get FREE DELIVERY"* — powers the
+slim burgundy bar above the navbar on every page (`components/layout/TopBar.tsx`) and the matching
+strip at the top of the footer. `business.delivery.note` ("On orders above ₹1000") is used inside the
+order summaries.
+
+**Form validation:** every field on `/checkout` and `/contact` is validated — required checks,
+min/max lengths, name/place character rules, 6-digit pincode (not starting with 0), 10-digit mobile
+(with optional +91), email format, and a minimum message length. Errors show on blur and on submit,
+and the first invalid field is focused. The contact form also requires at least one of phone/email.
+Rules live in `src/lib/validation.ts`; pincode/mobile inputs strip disallowed characters as you type.
 
 ---
 
@@ -134,28 +174,41 @@ Templates live in `src/lib/whatsapp.ts` (`buildOrderMessage`, `buildBagMessage`,
 
 ```
 src/
-  App.tsx                     page composition
+  App.tsx                     route switch (path → page)
   index.css                   Tailwind layers, design tokens, reveal/animation utilities
   data/
     site.ts                   ← all editable business information
     menu.ts                   ← menu items, specials, mutton block, features
     images.ts                 ← single image registry (paths + alt text)
-    navigation.ts             ← nav links + scroll-spy ids
+    navigation.ts             ← nav links (path-based routes)
+    legal.ts                  ← Terms & Conditions copy (one entry per section)
   lib/
+    router.ts                 navigate / usePathname / link interception / #anchor scrolling
+    phone.ts                  mobile normalisation + validation
+    validation.ts             shared field validators for the checkout + contact forms
     whatsapp.ts               wa.me / tel builders + message templates
     cn.ts                     class-name helper
   hooks/
-    useActiveSection.ts       nav highlight
     useLockBodyScroll.ts      drawer + modal scroll locking
   components/
-    layout/                   Navbar, Footer, FloatingActions
+    layout/                   Navbar, TopBar, Footer, SiteLayout, FloatingActions
     sections/                 Hero, SignatureMenu, ChickenSpecials, MuttonChicken,
-                              About, WhyChoose, Gallery, Contact, MarqueeStrip
+                              About, WhyChoose, Gallery, Contact, MarqueeStrip, ExplorePages
     order/                    OrderContext + OrderModal (item panel),
                               BagContext (bag state + persistence)
+    forms/                    ContactForm (contact-page WhatsApp enquiry)
     ui/                       Reveal, SectionHeading, SmartImage
   pages/
+    HomePage.tsx              /
+    MenuPage.tsx              /menu
+    AboutPage.tsx             /about
+    SpecialsPage.tsx          /chicken-specials
+    GalleryPage.tsx           /gallery
+    ContactPage.tsx           /contact
     BagPage.tsx               /bag — items, order summary, checkout
+    CheckoutPage.tsx          /checkout — delivery form + order summary
+    TermsPage.tsx             /terms — Terms & Conditions (+ on-page index)
+    NotFoundPage.tsx          any unknown path
 ```
 
 There is no backend or database — the build output in `dist/` is a static bundle.
@@ -203,11 +256,16 @@ static host.
 Before launch:
 
 - [x] WhatsApp number and phone number added (`+91 7036369022`)
-- [ ] Address, business hours and social links filled in
-- [ ] Google Maps embed added (`mapsEmbedUrl`)
+- [x] Address added (`addressLine` / `addressArea`) and wired to the shop's Google Maps listing
+      (`mapsLink` → every "Get directions" / "Open in Google Maps" button, plus `hasMap` in JSON-LD)
+- [ ] Business hours and social links filled in
+- [ ] Google Maps **embed** added (`mapsEmbedUrl`) — the map card currently shows the styled
+      placeholder with a working directions button
 - [ ] Prices confirmed (or intentionally left as "Price on ask")
 - [ ] Reshma / Vuda descriptions confirmed by the owner
 - [ ] Real photography in `public/images/` (including the storefront)
 - [ ] `og:image` and the JSON-LD address/phone updated in `index.html`
+- [x] Refund Policy link added — the Terms & Conditions page (`/terms`, copy in
+      `src/data/legal.ts`) is linked from the checkout checkbox, the footer and the site index
 
 

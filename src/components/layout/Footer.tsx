@@ -1,8 +1,9 @@
-import { ArrowUp, Clock, MapPin, MessageCircle, Phone } from 'lucide-react'
+import { ArrowUp, Clock, MapPin, MessageCircle, Phone, Truck } from 'lucide-react'
 import { navLinks } from '../../data/navigation'
 import { menuItems } from '../../data/menu'
 import { activeSocials, business, isPhoneConfigured } from '../../data/site'
 import { callHref, enquiryWhatsAppUrl } from '../../lib/whatsapp'
+import { HOME_PATH, TERMS_PATH } from '../../lib/router'
 import { AddToBagButton } from '../order/AddToBagButton'
 import { useOrder } from '../order/OrderContext'
 
@@ -12,23 +13,39 @@ const socialLabel: Record<string, string> = {
   youtube: 'YouTube',
 }
 
+const DELIVERY_HIGHLIGHT = 'FREE DELIVERY'
+const [deliveryBefore, deliveryAfter] = business.delivery.banner.split(DELIVERY_HIGHLIGHT)
+
 export function Footer() {
   const { openOrder } = useOrder()
   const year = new Date().getFullYear()
 
+  const backToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+
   return (
     <footer className="relative overflow-hidden border-t border-gold/20 bg-coal">
+      <div className="border-b border-gold/15 bg-burgundy-deep/70">
+        <div className="container-page flex items-center justify-center gap-2 py-3 text-center">
+          <Truck className="h-3.5 w-3.5 shrink-0 text-gold" aria-hidden="true" />
+          <p className="text-[9.5px] font-medium uppercase tracking-[0.16em] text-cream/85 sm:text-[10.5px]">
+            {deliveryBefore}
+            <span className="text-gold">{DELIVERY_HIGHLIGHT}</span>
+            {deliveryAfter}
+          </p>
+        </div>
+      </div>
+
       <div
         className="pointer-events-none absolute -top-32 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-gold/[0.06] blur-[140px]"
         aria-hidden="true"
       />
 
-      <div className="container-page relative pb-8 pt-14 sm:pt-16">
+      <div className="container-page relative pb-36 pt-14 sm:pb-8 sm:pt-16">
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
           {/* brand */}
           <div className="lg:col-span-4">
             <a
-              href="#home"
+              href={HOME_PATH}
               className="group inline-flex flex-col leading-none"
               aria-label={`${business.name} home`}
             >
@@ -126,10 +143,22 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-[13px] text-cream/55">
               <li className="flex items-start gap-2.5">
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold/70" aria-hidden="true" />
-                <span>
-                  {[business.addressLine, business.addressArea].filter(Boolean).join(', ') ||
-                    'Shop location shared on request'}
-                </span>
+                {business.mapsLink ? (
+                  <a
+                    href={business.mapsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-gold/25 decoration-1 underline-offset-4 transition-colors duration-300 hover:text-gold hover:decoration-gold/70"
+                  >
+                    {[business.addressLine, business.addressArea].filter(Boolean).join(', ') ||
+                      'Get directions on Google Maps'}
+                  </a>
+                ) : (
+                  <span>
+                    {[business.addressLine, business.addressArea].filter(Boolean).join(', ') ||
+                      'Shop location shared on request'}
+                  </span>
+                )}
               </li>
               {isPhoneConfigured && (
                 <li className="flex items-start gap-2.5">
@@ -177,10 +206,17 @@ export function Footer() {
           <p className="text-[10px] uppercase tracking-[0.18em] text-cream/30">
             &copy; {year} {business.name} {business.signLine}. All rights reserved.
           </p>
-          <div className="flex items-center gap-5">
-            <p className="text-[10px] text-cream/25">Photography is representative.</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 sm:justify-end">
             <a
-              href="#home"
+              href={TERMS_PATH}
+              className="text-[10px] uppercase tracking-[0.18em] text-cream/40 transition-colors duration-300 hover:text-gold"
+            >
+              Terms &amp; Conditions
+            </a>
+            <p className="text-[10px] text-cream/25">Photography is representative.</p>
+            <button
+              type="button"
+              onClick={backToTop}
               className="group inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-cream/40 transition-colors duration-300 hover:text-gold"
             >
               Back to top
@@ -188,7 +224,7 @@ export function Footer() {
                 className="h-3 w-3 transition-transform duration-300 group-hover:-translate-y-0.5"
                 aria-hidden="true"
               />
-            </a>
+            </button>
           </div>
         </div>
       </div>

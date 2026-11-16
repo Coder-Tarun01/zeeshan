@@ -37,12 +37,12 @@ export const business = {
   phoneDisplay: '+91 7036369022',
   /** WhatsApp number, digits only, country code first (wa.me requirement). */
   whatsapp: '917036369022',
+  /** Public email address. Leave empty to hide the email row. */
+  email: '',
 
   /* ---------------------------------------------------------------- address */
-  /** e.g. "Shop No. 4, Main Market Road" — EDIT ME. */
-  addressLine: '',
-  /** e.g. "Old City, Hyderabad 500002" — EDIT ME. */
-  addressArea: '',
+  addressLine: 'Opposite Indian Oil Petrol Bunk, Near Ghati Center',
+  addressArea: 'Kakinada, Andhra Pradesh 533016',
   /** Short line used when the street address has not been shared yet. */
   addressFallback:
     'We share our exact shop location on request — message us on WhatsApp and the team will send the location pin straight away.',
@@ -58,10 +58,11 @@ export const business = {
    * (Maps → Share → Embed a map → copy the src value).
    */
   mapsEmbedUrl: '',
-  /** Paste the normal Google Maps place link used by "Get directions". */
-  mapsLink: '',
-  /** Pre-filled Google Maps search used while no pin exists yet. */
-  mapsSearchQuery: 'ZEESHAN Mutton & Chicken',
+  /** Normal Google Maps place link used by every "Get directions" button. */
+  mapsLink: 'https://maps.app.goo.gl/kTEd4ZHJfx1hvu2SA',
+  /** Pre-filled Google Maps search used for directions / the map link. */
+  mapsSearchQuery:
+    'ZEESHAN Chicken & Mutton, Opposite Indian Oil Petrol Bunk, Ghati Center, Kakinada, Andhra Pradesh 533016',
 
   /* ----------------------------------------------------------------- social */
   socials: [
@@ -71,10 +72,12 @@ export const business = {
   ] as SocialLink[],
 
   /* --------------------------------------------------------------- delivery */
-  /** Delivery offer shown on the order bag page. */
+  /** Delivery offer shown on the order bag page, top bar and footer. */
   delivery: {
     title: 'Free Delivery',
     note: 'On orders above ₹1000',
+    /** Announcement line — "FREE DELIVERY" is highlighted automatically. */
+    banner: 'Orders above ₹1000 get FREE DELIVERY',
   },
 }
 

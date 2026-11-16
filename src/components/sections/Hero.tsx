@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUpRight, MessageCircle, Star } from 'lucide-react'
 import { images } from '../../data/images'
 import { business } from '../../data/site'
 import { enquiryWhatsAppUrl } from '../../lib/whatsapp'
+import { MENU_PATH, SPECIALS_PATH } from '../../lib/router'
 import { SmartImage } from '../ui/SmartImage'
 
 const heroHighlights = ['Chicken Pakodi', 'Chicken Lollipop', 'Chicken Joint']
@@ -11,7 +12,7 @@ export function Hero() {
     <section
       id="home"
       aria-label="ZEESHAN — chicken and mutton specialities"
-      className="relative isolate flex min-h-[100svh] flex-col justify-center overflow-hidden bg-coal pb-16 pt-28 sm:pb-20 lg:pb-24 lg:pt-32"
+      className="relative isolate flex min-h-[100svh] flex-col justify-center overflow-hidden bg-coal pb-16 pt-36 sm:pb-20 lg:pb-24 lg:pt-40"
     >
       {/* ------------------------------------------------------- background */}
       <div className="absolute inset-0 -z-10">
@@ -81,7 +82,7 @@ export function Hero() {
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <a href="#menu" className="btn-gold w-full sm:w-auto">
+              <a href={MENU_PATH} className="btn-gold w-full sm:w-auto">
                 Explore Our Menu
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>
@@ -132,7 +133,7 @@ export function Hero() {
                   Fried crisp, tossed in masala, made to order.
                 </p>
                 <a
-                  href="#specials"
+                  href={SPECIALS_PATH}
                   className="mt-4 inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
                 >
                   See the specials
@@ -149,7 +150,7 @@ export function Hero() {
             Chicken &middot; Mutton &middot; Non-Veg Favourites
           </p>
           <a
-            href="#menu"
+            href={MENU_PATH}
             className="group flex items-center gap-3 text-[9px] uppercase tracking-[0.24em] text-cream/45 transition-colors duration-300 hover:text-gold"
           >
             <span className="hidden sm:inline">Scroll to explore</span>

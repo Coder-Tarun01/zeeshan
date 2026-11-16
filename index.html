@@ -53,9 +53,8 @@
 
     <!--
       LocalBusiness / Restaurant structured data.
-      Confirmed facts only: brand, what we serve, the menu and the shop phone number.
-      TODO (owner): add "streetAddress", "openingHoursSpecification", "geo" and "sameAs"
-      once the shop details are confirmed — never invent them.
+      Confirmed facts: brand, what we serve, the menu, the shop phone number and address.
+      TODO (owner): add "openingHoursSpecification", "geo" and "sameAs" once confirmed.
     -->
     <script type="application/ld+json">
       {
@@ -65,8 +64,17 @@
         "alternateName": "ZEESHAN",
         "description": "Chicken and mutton food outlet serving chicken pakodi, chicken lollipop, chicken joint and non-vegetarian specialities.",
         "telephone": "+917036369022",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Opposite Indian Oil Petrol Bunk, Near Ghati Center",
+          "addressLocality": "Kakinada",
+          "addressRegion": "Andhra Pradesh",
+          "postalCode": "533016",
+          "addressCountry": "IN"
+        },
         "servesCuisine": ["Chicken", "Mutton", "Non-Vegetarian", "Indian"],
         "image": "/images/hero-platter.jpg",
+        "hasMap": "https://maps.app.goo.gl/kTEd4ZHJfx1hvu2SA",
         "acceptsReservations": "False",
         "hasMenu": {
           "@type": "Menu",

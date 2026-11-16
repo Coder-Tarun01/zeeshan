@@ -12,7 +12,7 @@ const iconMap = {
   pin: MapPin,
 } as const
 
-export function WhyChoose() {
+export function WhyChoose({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   return (
     <section id="why-us" className="relative overflow-hidden bg-coal py-20 sm:py-24 lg:py-32">
       <div
@@ -28,6 +28,7 @@ export function WhyChoose() {
         <SectionHeading
           align="center"
           eyebrow="Why ZEESHAN"
+          level={headingLevel}
           title={
             <>
               Five Reasons the <span className="italic text-gold">Line Moves</span>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, MapPin, Plus, X } from 'lucide-react'
 import { images } from '../../data/images'
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll'
+import { CONTACT_PATH } from '../../lib/router'
 import { SectionHeading } from '../ui/SectionHeading'
 import { Reveal } from '../ui/Reveal'
 import { SmartImage } from '../ui/SmartImage'
@@ -10,7 +11,7 @@ import { cn } from '../../lib/cn'
 const tiles = images.gallery
 const ratios = ['aspect-[4/5]', 'aspect-[4/3]', 'aspect-square', 'aspect-[4/5]', 'aspect-[3/2]']
 
-export function Gallery() {
+export function Gallery({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const isOpen = activeIndex !== null
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -68,6 +69,7 @@ export function Gallery() {
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <SectionHeading
             eyebrow="Food Gallery"
+            level={headingLevel}
             title={
               <>
                 The Plates, <span className="italic text-gold">Up Close.</span>
@@ -107,7 +109,7 @@ export function Gallery() {
                 </p>
               </div>
               <a
-                href="#contact"
+                href={CONTACT_PATH}
                 className="relative inline-flex items-center gap-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
               >
                 <MapPin className="h-3.5 w-3.5" aria-hidden="true" />

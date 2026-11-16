@@ -42,7 +42,7 @@ export const images = {
   },
   menuReshma: {
     src: '/images/menu-reshma.jpg',
-    alt: 'Spicy chicken speciality tossed with herbs and chillies',
+    alt: 'Golden fried chicken pieces, freshly fried and served',
     width: 900,
     height: 600,
   },

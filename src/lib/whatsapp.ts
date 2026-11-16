@@ -122,6 +122,29 @@ export function checkoutWhatsAppUrl(items: BagMessageItem[], customer: CustomerD
   return buildWhatsAppUrl(buildCheckoutMessage(items, customer))
 }
 
+export interface ContactEnquiry {
+  name: string
+  phone?: string
+  email?: string
+  description: string
+}
+
+/** Contact-page form → WhatsApp message. */
+export function buildContactMessage(enquiry: ContactEnquiry): string {
+  const lines: string[] = [`Hello ${business.name}!`, '', `Name: ${enquiry.name.trim()}`]
+
+  if (enquiry.phone?.trim()) lines.push(`Phone: ${enquiry.phone.trim()}`)
+  if (enquiry.email?.trim()) lines.push(`Email: ${enquiry.email.trim()}`)
+
+  lines.push('', 'Message:', enquiry.description.trim())
+
+  return lines.join('\n')
+}
+
+export function contactWhatsAppUrl(enquiry: ContactEnquiry): string {
+  return buildWhatsAppUrl(buildContactMessage(enquiry))
+}
+
 /** Generic "talk to us" message used by the floating button and CTAs. */
 export function buildEnquiryMessage(topic?: string): string {
   return [

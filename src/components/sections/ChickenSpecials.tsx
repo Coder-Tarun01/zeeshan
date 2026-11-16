@@ -14,7 +14,7 @@ import { AddToBagButton } from '../order/AddToBagButton'
 import { useOrder } from '../order/OrderContext'
 import { cn } from '../../lib/cn'
 
-export function ChickenSpecials() {
+export function ChickenSpecials({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   const { openOrder } = useOrder()
   const [featured, ...rest] = chickenSpecials
   const [featuredPortion, setFeaturedPortion] = useState<Portion>(DEFAULT_PORTION)
@@ -34,6 +34,7 @@ export function ChickenSpecials() {
         <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <SectionHeading
             eyebrow="Chicken Specials"
+            level={headingLevel}
             title={
               <>
                 Fried. Spiced.

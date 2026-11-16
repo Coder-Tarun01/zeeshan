@@ -1,26 +1,63 @@
 import { useEffect, useState } from 'react'
 
+export const HOME_PATH = '/'
+export const ABOUT_PATH = '/about'
+export const MENU_PATH = '/menu'
+export const SPECIALS_PATH = '/chicken-specials'
+export const GALLERY_PATH = '/gallery'
+export const CONTACT_PATH = '/contact'
 export const BAG_PATH = '/bag'
 export const CHECKOUT_PATH = '/checkout'
-export const HOME_PATH = '/'
+export const TERMS_PATH = '/terms'
 
 const normalize = (pathname: string) => {
   const trimmed = pathname.replace(/\/+$/, '')
   return trimmed === '' ? HOME_PATH : trimmed
 }
 
-/** Client-side navigation without pulling in a router dependency. */
-export function navigate(path: string) {
-  const target = normalize(path)
+/** Splits `/terms#cancellation` into its pathname and anchor. */
+const splitPath = (path: string) => {
+  const [pathname, hash = ''] = path.split('#')
+  return { pathname: normalize(pathname), hash }
+}
 
-  if (normalize(window.location.pathname) === target) {
+/**
+ * Scrolls to the current `#anchor` when the route has one, otherwise to the top.
+ * Called after every route change so deep links land on the right section.
+ */
+export function scrollToRouteTarget() {
+  const hash = window.location.hash.replace(/^#/, '')
+
+  if (!hash) {
     window.scrollTo({ top: 0, behavior: 'auto' })
     return
   }
 
-  window.history.pushState({ path: target }, '', target)
+  requestAnimationFrame(() => {
+    document.getElementById(hash)?.scrollIntoView({ block: 'start' })
+  })
+}
+
+/** Client-side navigation without pulling in a router dependency. */
+export function navigate(path: string) {
+  const { pathname, hash } = splitPath(path)
+  const samePage = normalize(window.location.pathname) === pathname
+  const sameHash = window.location.hash.replace(/^#/, '') === hash
+
+  if (samePage && sameHash) {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    return
+  }
+
+  window.history.pushState({ path: pathname }, '', hash ? `${pathname}#${hash}` : pathname)
+
+  if (samePage) {
+    // Only the anchor changed — nothing to re-render, just move the view.
+    scrollToRouteTarget()
+    return
+  }
+
   window.dispatchEvent(new PopStateEvent('popstate'))
-  window.scrollTo({ top: 0, behavior: 'auto' })
 }
 
 export function usePathname(): string {
@@ -35,25 +72,12 @@ export function usePathname(): string {
   return path
 }
 
-/** Scrolls to a section id, retrying briefly while the home page mounts. */
-export function scrollToHash(hash: string, attempt = 0) {
-  const id = hash.replace('#', '')
-  if (!id) return
-
-  const element = document.getElementById(id)
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    return
-  }
-
-  if (attempt < 24) window.setTimeout(() => scrollToHash(hash, attempt + 1), 50)
-}
-
 /**
- * Keeps in-page anchors (#menu, #contact…) working from the bag page:
- * they navigate home first, then scroll to the section.
+ * Makes internal links (`/menu`, `/bag`, …) navigate inside the SPA instead of
+ * reloading the document. External, `tel:`, `mailto:` and new-tab links are
+ * left untouched.
  */
-export function useHashLinkBridge() {
+export function useLinkInterceptor() {
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (
@@ -68,20 +92,30 @@ export function useHashLinkBridge() {
       }
 
       const anchor = (event.target as HTMLElement | null)?.closest?.(
-        'a[href^="#"]',
+        'a[href]',
       ) as HTMLAnchorElement | null
-      if (!anchor) return
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return
 
-      const hash = anchor.getAttribute('href') ?? ''
-      if (hash.length < 2) return
-      if (normalize(window.location.pathname) === HOME_PATH) return
+      const href = anchor.getAttribute('href') ?? ''
+      if (!href.startsWith('/') || href.startsWith('//') || href.startsWith('/#')) return
 
       event.preventDefault()
-      navigate(HOME_PATH)
-      window.setTimeout(() => scrollToHash(hash), 90)
+      navigate(href)
     }
 
     document.addEventListener('click', onClick)
     return () => document.removeEventListener('click', onClick)
   }, [])
+}
+
+/** Sets the document title (and keeps the canonical URL in step with the route). */
+export function usePageTitle(title: string) {
+  useEffect(() => {
+    document.title = title
+
+    const canonical = document.querySelector('link[rel="canonical"]')
+    if (canonical) {
+      canonical.setAttribute('href', window.location.origin + normalize(window.location.pathname))
+    }
+  }, [title])
 }

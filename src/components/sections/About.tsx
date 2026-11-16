@@ -2,6 +2,7 @@ import { ArrowUpRight, MessageCircle } from 'lucide-react'
 import { images } from '../../data/images'
 import { business } from '../../data/site'
 import { enquiryWhatsAppUrl } from '../../lib/whatsapp'
+import { SPECIALS_PATH } from '../../lib/router'
 import { Reveal } from '../ui/Reveal'
 import { SectionHeading } from '../ui/SectionHeading'
 import { SmartImage } from '../ui/SmartImage'
@@ -21,7 +22,7 @@ const aboutHighlights = [
   },
 ]
 
-export function About() {
+export function About({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   return (
     <section id="about" className="relative overflow-hidden bg-ink py-20 sm:py-24 lg:py-32">
       <div
@@ -68,6 +69,7 @@ export function About() {
           <div className="lg:pl-4">
             <SectionHeading
               eyebrow="About ZEESHAN"
+              level={headingLevel}
               title={
                 <>
                   More Than Food.
@@ -126,7 +128,7 @@ export function About() {
                 Talk to Us on WhatsApp
               </a>
               <a
-                href="#specials"
+                href={SPECIALS_PATH}
                 className="group inline-flex w-full items-center justify-center gap-2 px-2 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-cream/60 transition-colors duration-300 hover:text-gold sm:w-auto"
               >
                 Chicken Specials

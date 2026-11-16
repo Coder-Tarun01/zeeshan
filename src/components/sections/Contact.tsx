@@ -3,13 +3,12 @@ import {
   Facebook,
   Instagram,
   MapPin,
-  MessageCircle,
   Navigation,
-  Phone,
   Youtube,
 } from 'lucide-react'
 import { activeSocials, business, isPhoneConfigured } from '../../data/site'
 import { callHref, enquiryWhatsAppUrl } from '../../lib/whatsapp'
+import { ContactForm } from '../forms/ContactForm'
 import { SectionHeading } from '../ui/SectionHeading'
 import { Reveal } from '../ui/Reveal'
 
@@ -24,7 +23,68 @@ const mapsHref = business.mapsLink || `https://www.google.com/maps/search/?api=1
 
 const fullAddress = [business.addressLine, business.addressArea].filter(Boolean).join(', ')
 
-export function Contact() {
+/** Google Maps embed — or a styled placeholder until the pin is confirmed. */
+function MapCard() {
+  return (
+    <div className="relative h-full min-h-[340px] overflow-hidden border border-gold/20 bg-ink">
+      {business.mapsEmbedUrl ? (
+        <iframe
+          title={`${business.name} location on Google Maps`}
+          src={business.mapsEmbedUrl}
+          className="h-full min-h-[340px] w-full border-0 grayscale-[0.35] contrast-[1.05]"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
+      ) : (
+        <div className="flex h-full min-h-[340px] flex-col items-center justify-center px-6 py-12 text-center">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.14]"
+            aria-hidden="true"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(214,168,75,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(214,168,75,0.55) 1px, transparent 1px)',
+              backgroundSize: '56px 56px',
+            }}
+          />
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/20"
+            aria-hidden="true"
+          >
+            <span className="absolute inset-8 rounded-full border border-gold/15" />
+            <span className="absolute inset-16 rounded-full border border-gold/10" />
+          </div>
+
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-gold animate-floaty">
+            <MapPin className="h-6 w-6" aria-hidden="true" />
+          </span>
+
+          <p className="relative mt-6 text-[9px] uppercase tracking-label text-gold/80">
+            Google Maps
+          </p>
+          <p className="relative mt-3 font-display text-2xl text-cream sm:text-[28px]">
+            {business.addressArea.split(',')[0] || 'Shop location'}
+          </p>
+          <p className="relative mt-2 max-w-xs text-[12.5px] leading-relaxed text-cream/45">
+            Open Google Maps for directions to the shop. If the pin looks off, message us and we will
+            guide you in.
+          </p>
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-outline relative mt-6 !px-6 !py-3.5 !text-[9.5px]"
+          >
+            <Navigation className="h-4 w-4" aria-hidden="true" />
+            Open in Google Maps
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function Contact({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   const hoursRows = business.hours.length > 0 ? business.hours : null
 
   return (
@@ -40,6 +100,7 @@ export function Contact() {
       <div className="container-page relative">
         <SectionHeading
           eyebrow="Contact & Location"
+          level={headingLevel}
           title={
             <>
               Come Hungry.
@@ -53,83 +114,84 @@ export function Contact() {
 
         <div className="mt-12 grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-6">
           <Reveal variant="left" className="flex flex-col gap-4">
-            <div className="border border-cream/10 bg-ink/60 p-5 transition-colors duration-500 hover:border-gold/35 sm:p-6">
-              <div className="flex items-start gap-4">
+            <div className="border border-cream/10 bg-ink/60 p-5 sm:p-6">
+              <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gold/30 bg-gold/[0.06] text-gold">
                   <MapPin className="h-4 w-4" aria-hidden="true" />
                 </span>
-                <div className="min-w-0">
-                  <p className="label-caps">Visit the shop</p>
-                  {fullAddress ? (
-                    <p className="mt-2 text-[14px] leading-relaxed text-cream/75">{fullAddress}</p>
-                  ) : (
-                    <p className="mt-2 text-[13.5px] leading-relaxed text-cream/55">
-                      {business.addressFallback}
-                    </p>
-                  )}
-                  <a
-                    href={fullAddress ? mapsHref : enquiryWhatsAppUrl('the shop location pin')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
-                  >
-                    <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
-                    {fullAddress ? 'Get directions' : 'Ask for the location pin'}
-                  </a>
-                </div>
+                <h3 className="font-display text-xl text-cream">Contact Information</h3>
               </div>
-            </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="border border-cream/10 bg-ink/60 p-5 transition-colors duration-500 hover:border-gold/35">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 bg-gold/[0.06] text-gold">
-                  <Phone className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <p className="label-caps mt-4">Call us</p>
-                {isPhoneConfigured ? (
-                  <>
-                    <p className="mt-2 text-[14px] text-cream/75">{business.phoneDisplay}</p>
+              <dl className="mt-5 divide-y divide-cream/[0.08] border-t border-cream/[0.08]">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+                  <dt className="label-caps">Name</dt>
+                  <dd className="text-right text-[13.5px] text-cream/80">
+                    {business.name} — {business.signLine}
+                  </dd>
+                </div>
+
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+                  <dt className="label-caps">Phone</dt>
+                  <dd className="text-right text-[13.5px]">
+                    {isPhoneConfigured ? (
+                      <a
+                        href={callHref(business.phone)}
+                        className="text-cream/80 transition-colors duration-300 hover:text-gold"
+                      >
+                        {business.phoneDisplay}
+                      </a>
+                    ) : (
+                      <span className="text-cream/55">Shared on request</span>
+                    )}
+                  </dd>
+                </div>
+
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+                  <dt className="label-caps">WhatsApp</dt>
+                  <dd className="text-right text-[13.5px]">
                     <a
-                      href={callHref(business.phone)}
-                      className="mt-3 inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
-                    >
-                      Call now
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-2 text-[13px] leading-relaxed text-cream/50">
-                      The shop number is shared on request.
-                    </p>
-                    <a
-                      href={enquiryWhatsAppUrl('the shop phone number')}
+                      href={enquiryWhatsAppUrl('placing an order')}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-3 inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
+                      className="text-cream/80 transition-colors duration-300 hover:text-gold"
                     >
-                      Request the number
+                      {business.phoneDisplay || 'Message us'}
                     </a>
-                  </>
-                )}
-              </div>
+                  </dd>
+                </div>
 
-              <div className="border border-gold/25 bg-gradient-to-br from-ink to-burgundy-deep/40 p-5 transition-colors duration-500 hover:border-gold/60">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gold text-ink">
-                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <p className="label-caps mt-4">WhatsApp</p>
-                <p className="mt-2 text-[13px] leading-relaxed text-cream/60">
-                  Send your order or ask what is ready today.
-                </p>
-                <a
-                  href={enquiryWhatsAppUrl('placing an order')}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
-                >
-                  Message ZEESHAN
-                </a>
-              </div>
+                {business.email.trim().length > 0 && (
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3">
+                    <dt className="label-caps">Email</dt>
+                    <dd className="break-all text-right text-[13.5px]">
+                      <a
+                        href={`mailto:${business.email}`}
+                        className="text-cream/80 transition-colors duration-300 hover:text-gold"
+                      >
+                        {business.email}
+                      </a>
+                    </dd>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1.5 py-3">
+                  <dt className="label-caps">Address</dt>
+                  <dd>
+                    <p className="text-[13.5px] leading-relaxed text-cream/80">
+                      {fullAddress || business.addressFallback}
+                    </p>
+                    <a
+                      href={fullAddress ? mapsHref : enquiryWhatsAppUrl('the shop location pin')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
+                    >
+                      <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
+                      {fullAddress ? 'Get directions' : 'Ask for the location pin'}
+                    </a>
+                  </dd>
+                </div>
+              </dl>
             </div>
 
             <div className="border border-cream/10 bg-ink/60 p-5 transition-colors duration-500 hover:border-gold/35 sm:p-6">
@@ -184,65 +246,14 @@ export function Contact() {
             )}
           </Reveal>
 
-          {/* ----------------------------------------------------------- map */}
-          <Reveal variant="right" delay={120} className="min-h-[420px]">
-            <div className="relative h-full min-h-[420px] overflow-hidden border border-gold/20 bg-ink">
-              {business.mapsEmbedUrl ? (
-                <iframe
-                  title={`${business.name} location on Google Maps`}
-                  src={business.mapsEmbedUrl}
-                  className="h-full min-h-[420px] w-full border-0 grayscale-[0.35] contrast-[1.05]"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  allowFullScreen
-                />
-              ) : (
-                <div className="flex h-full min-h-[420px] flex-col items-center justify-center px-6 py-14 text-center">
-                  <div
-                    className="pointer-events-none absolute inset-0 opacity-[0.14]"
-                    aria-hidden="true"
-                    style={{
-                      backgroundImage:
-                        'linear-gradient(rgba(214,168,75,0.55) 1px, transparent 1px), linear-gradient(90deg, rgba(214,168,75,0.55) 1px, transparent 1px)',
-                      backgroundSize: '56px 56px',
-                    }}
-                  />
-                  <div
-                    className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/20"
-                    aria-hidden="true"
-                  >
-                    <span className="absolute inset-8 rounded-full border border-gold/15" />
-                    <span className="absolute inset-16 rounded-full border border-gold/10" />
-                  </div>
-
-                  <span className="relative flex h-14 w-14 items-center justify-center rounded-full border border-gold/40 bg-gold/10 text-gold animate-floaty">
-                    <MapPin className="h-6 w-6" aria-hidden="true" />
-                  </span>
-
-                  <p className="relative mt-6 text-[9px] uppercase tracking-label text-gold/80">
-                    Google Maps
-                  </p>
-                  <p className="relative mt-3 font-display text-2xl text-cream sm:text-[28px]">
-                    Shop location pin
-                  </p>
-                  <p className="relative mt-2 max-w-xs text-[12.5px] leading-relaxed text-cream/45">
-                    The exact Google Maps embed appears here once the shop location is confirmed.
-                    Until then, search for us or ask for the location pin on WhatsApp.
-                  </p>
-                  <a
-                    href={mapsHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-outline relative mt-6 !px-6 !py-3.5 !text-[9.5px]"
-                  >
-                    <Navigation className="h-4 w-4" aria-hidden="true" />
-                    Search on Google Maps
-                  </a>
-                </div>
-              )}
-            </div>
+          <Reveal variant="right" delay={120}>
+            <ContactForm />
           </Reveal>
         </div>
+
+        <Reveal delay={80} className="mt-5">
+          <MapCard />
+        </Reveal>
       </div>
     </section>
   )

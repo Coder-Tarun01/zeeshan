@@ -7,7 +7,7 @@ import { SectionHeading } from '../ui/SectionHeading'
 import { Reveal } from '../ui/Reveal'
 import { SmartImage } from '../ui/SmartImage'
 
-export function MuttonChicken() {
+export function MuttonChicken({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   const chickenItems = menuItems.filter((item) => item.category === 'chicken')
 
   return (
@@ -24,6 +24,7 @@ export function MuttonChicken() {
         <SectionHeading
           align="center"
           eyebrow="The Board"
+          level={headingLevel}
           title={
             <>
               Mutton &amp; <span className="italic text-gold">Chicken</span>
@@ -87,13 +88,16 @@ export function MuttonChicken() {
                 ))}
               </ul>
 
-              <a
-                href="#menu"
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
                 className="mt-6 inline-flex w-fit items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors duration-300 hover:text-gold-light"
               >
                 View chicken menu
                 <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+              </button>
             </div>
           </Reveal>
 

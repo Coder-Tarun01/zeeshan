@@ -1,10 +1,9 @@
 import { useEffect, useState, type MouseEvent } from 'react'
 import { Menu, MessageCircle, Phone, ShoppingBag, X } from 'lucide-react'
-import { navLinks, sectionIds } from '../../data/navigation'
+import { navLinks } from '../../data/navigation'
 import { business, isPhoneConfigured } from '../../data/site'
 import { callHref, enquiryWhatsAppUrl } from '../../lib/whatsapp'
-import { BAG_PATH, navigate } from '../../lib/router'
-import { useActiveSection } from '../../hooks/useActiveSection'
+import { BAG_PATH, HOME_PATH, navigate, usePathname } from '../../lib/router'
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll'
 import { useBag } from '../order/BagContext'
 import { cn } from '../../lib/cn'
@@ -12,7 +11,7 @@ import { cn } from '../../lib/cn'
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const activeSection = useActiveSection(sectionIds)
+  const path = usePathname()
   const { count } = useBag()
 
   useLockBodyScroll(mobileOpen)
@@ -21,6 +20,12 @@ export function Navbar() {
     event.preventDefault()
     setMobileOpen(false)
     navigate(BAG_PATH)
+  }
+
+  const goHome = (event: MouseEvent) => {
+    event.preventDefault()
+    setMobileOpen(false)
+    navigate(HOME_PATH)
   }
 
   useEffect(() => {
@@ -49,8 +54,8 @@ export function Navbar() {
 
   const brandMark = (
     <a
-      href="#home"
-      onClick={() => setMobileOpen(false)}
+      href={HOME_PATH}
+      onClick={goHome}
       className="group flex shrink-0 flex-col leading-none"
       aria-label={`${business.name} — ${business.signLine}, home`}
     >
@@ -69,7 +74,7 @@ export function Navbar() {
     <>
       <header
         className={cn(
-          'fixed inset-x-0 top-0 z-[90] transition-[background-color,box-shadow,border-color] duration-500 ease-premium',
+          'fixed inset-x-0 top-8 z-[90] transition-[background-color,box-shadow,border-color] duration-500 ease-premium',
           scrolled
             ? 'border-b border-cream/10 bg-ink/95 shadow-[0_16px_50px_-30px_rgba(0,0,0,1)] backdrop-blur-xl'
             : 'border-b border-transparent bg-gradient-to-b from-coal/80 via-coal/30 to-transparent',
@@ -86,12 +91,12 @@ export function Navbar() {
           <nav aria-label="Primary" className="hidden lg:block">
             <ul className="flex items-center gap-5 xl:gap-8">
               {navLinks.map((link) => {
-                const isActive = activeSection === link.href.replace('#', '')
+                const isActive = path === link.href
                 return (
                   <li key={link.href}>
                     <a
                       href={link.href}
-                      aria-current={isActive ? 'true' : undefined}
+                      aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         'group relative block py-2 text-[10px] font-medium uppercase tracking-[0.18em] transition-colors duration-300 xl:text-[11px]',
                         isActive ? 'text-gold' : 'text-cream/65 hover:text-cream',
@@ -213,9 +218,7 @@ export function Navbar() {
                     tabIndex={mobileOpen ? 0 : -1}
                     className={cn(
                       'flex items-baseline gap-4 py-4 transition-colors duration-300',
-                      activeSection === link.href.replace('#', '')
-                        ? 'text-gold'
-                        : 'text-cream/80 hover:text-gold',
+                      path === link.href ? 'text-gold' : 'text-cream/80 hover:text-gold',
                     )}
                   >
                     <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-gold/50">

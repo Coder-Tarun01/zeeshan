@@ -138,7 +138,7 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
   )
 }
 
-export function SignatureMenu() {
+export function SignatureMenu({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
   const [active, setActive] = useState<(typeof menuFilters)[number]['id']>('all')
 
   const visibleItems =
@@ -160,6 +160,7 @@ export function SignatureMenu() {
         <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
           <SectionHeading
             eyebrow="Our Menu"
+            level={headingLevel}
             title={
               <>
                 The Signature <span className="italic text-gold">Menu</span>
@@ -266,12 +267,17 @@ export function SignatureMenu() {
           >
             <span className="h-px w-8 bg-gold/40" aria-hidden="true" />
             Mutton is on the board too —
-            <a
-              href="#mutton-chicken"
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById('mutton-chicken')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
               className="text-gold/90 underline decoration-gold/40 underline-offset-4 transition-colors duration-300 hover:text-gold-light"
             >
               see the Mutton &amp; Chicken section
-            </a>
+            </button>
           </Reveal>
         )}
       </div>

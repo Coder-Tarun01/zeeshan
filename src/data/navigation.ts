@@ -3,23 +3,12 @@ export interface NavLink {
   href: string
 }
 
+/** Real, path-based routes (no hash routing). */
 export const navLinks: NavLink[] = [
-  { label: 'Home', href: '#home' },
-  { label: 'About Us', href: '#about' },
-  { label: 'Our Menu', href: '#menu' },
-  { label: 'Chicken Specials', href: '#specials' },
-  { label: 'Gallery', href: '#gallery' },
-  { label: 'Contact', href: '#contact' },
-]
-
-/** Section ids used by the scroll-spy (order matches the page). */
-export const sectionIds = [
-  'home',
-  'menu',
-  'specials',
-  'mutton-chicken',
-  'about',
-  'why-us',
-  'gallery',
-  'contact',
+  { label: 'Home', href: '/' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Our Menu', href: '/menu' },
+  { label: 'Chicken Specials', href: '/chicken-specials' },
+  { label: 'Gallery', href: '/gallery' },
+  { label: 'Contact', href: '/contact' },
 ]

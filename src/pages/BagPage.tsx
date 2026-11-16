@@ -11,16 +11,15 @@ import {
   Truck,
 } from 'lucide-react'
 import { useBag } from '../components/order/BagContext'
-import { Footer } from '../components/layout/Footer'
+import { SiteLayout } from '../components/layout/SiteLayout'
 import { SmartImage } from '../components/ui/SmartImage'
 import { PORTIONS, type Portion } from '../data/menu'
 import { business } from '../data/site'
-import { bagWhatsAppUrl, buildBagMessage, isWhatsAppConfigured } from '../lib/whatsapp'
-import { BAG_PATH, CHECKOUT_PATH, HOME_PATH, navigate, scrollToHash } from '../lib/router'
+import { buildBagMessage } from '../lib/whatsapp'
+import { CHECKOUT_PATH, HOME_PATH, MENU_PATH, navigate } from '../lib/router'
 
 export function BagPage() {
   const { items, count, updateQuantity, changePortion, removeItem, clearBag } = useBag()
-  const whatsappHref = bagWhatsAppUrl(items)
   const messagePreview = buildBagMessage(items)
 
   useEffect(() => {
@@ -32,8 +31,7 @@ export function BagPage() {
   }, [])
 
   const continueShopping = () => {
-    navigate(HOME_PATH)
-    window.setTimeout(() => scrollToHash('#menu'), 90)
+    navigate(MENU_PATH)
   }
 
   const goHome = (event: MouseEvent) => {
@@ -42,41 +40,11 @@ export function BagPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ink">
-      <header className="fixed inset-x-0 top-0 z-[90] border-b border-cream/10 bg-ink/95 backdrop-blur-xl">
-        <div className="container-page flex h-[74px] items-center justify-between gap-4">
-          <a
-            href="/"
-            onClick={goHome}
-            className="group flex shrink-0 flex-col leading-none"
-            aria-label={`${business.name} — home`}
-          >
-            <span className="font-display text-[25px] font-medium tracking-[0.16em] text-cream transition-colors duration-500 group-hover:text-gold-light sm:text-[28px]">
-              {business.name}
-            </span>
-            <span className="mt-1.5 flex items-center gap-2 text-[7.5px] uppercase tracking-[0.34em] text-gold/80 sm:text-[8.5px]">
-              <span className="h-px w-3 bg-gold/50" aria-hidden="true" />
-              {business.signLine}
-              <span className="h-px w-3 bg-gold/50" aria-hidden="true" />
-            </span>
-          </a>
-
-          <button
-            type="button"
-            onClick={continueShopping}
-            className="group inline-flex items-center gap-2 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-cream/60 transition-colors duration-300 hover:text-gold"
-          >
-            <ArrowLeft
-              className="h-3.5 w-3.5 transition-transform duration-300 group-hover:-translate-x-0.5"
-              aria-hidden="true"
-            />
-            Continue Shopping
-          </button>
-        </div>
-      </header>
-
-      <main id="main" className="pb-20 pt-[104px] sm:pt-[120px]">
-        <div className="container-page">
+    <SiteLayout
+      mainClassName="pb-20 pt-[136px] sm:pt-[152px]"
+      withFloatingActions={false}
+    >
+      <div className="container-page">
           <nav
             aria-label="Breadcrumb"
             className="text-[9px] uppercase tracking-[0.2em] text-cream/35"
@@ -235,7 +203,7 @@ export function BagPage() {
                 </ul>
               </section>
 
-              <aside aria-label="Order summary" className="lg:sticky lg:top-[104px]">
+              <aside aria-label="Order summary" className="lg:sticky lg:top-[136px]">
                 <div className="border border-gold/25 bg-night">
                   <div className="border-b border-cream/10 px-5 py-4 sm:px-6">
                     <h2 className="font-display text-xl text-cream">Order Summary</h2>
@@ -284,15 +252,14 @@ export function BagPage() {
                       </div>
                     </div>
 
-                    <a
-                      href={whatsappHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => navigate(CHECKOUT_PATH)}
                       className="btn-gold mt-5 w-full"
                     >
                       <MessageCircle className="h-4 w-4" aria-hidden="true" />
                       Proceed to Checkout
-                    </a>
+                    </button>
 
                     <button
                       type="button"
@@ -309,9 +276,8 @@ export function BagPage() {
                         aria-hidden="true"
                       />
                       <span>
-                        {isWhatsAppConfigured
-                          ? 'Checkout happens on WhatsApp — we confirm availability and the total.'
-                          : 'Your order is ready — choose ZEESHAN in WhatsApp to send it.'}
+                        Next step: add your delivery details, then the order opens in WhatsApp for
+                        confirmation.
                       </span>
                     </p>
 
@@ -328,10 +294,7 @@ export function BagPage() {
               </aside>
             </div>
           )}
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </SiteLayout>
   )
 }
