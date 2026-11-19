@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+
+# local databases + secrets never belong in an image
+*.db
+*.db-shm
+*.db-wal
+.env

@@ -1,0 +1,67 @@
+# ---------------------------------------------------------------------------
+# ZEESHAN — full stack in Docker
+#
+#   docker compose up -d --build      # build + start everything
+#   docker compose ps                 # status / health
+#   docker compose logs -f api        # follow the API
+#   docker compose down               # stop (add -v to delete the database)
+#
+# Values come from the root `.env` file (copy `.env.example` → `.env`).
+# ---------------------------------------------------------------------------
+name: zeeshan
+
+services:
+  # ---------------------------------------------------------------- PostgreSQL
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-zeeshan}
+      POSTGRES_USER: ${POSTGRES_USER:-zeeshan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    # Not published: only the API needs it. Use `docker compose exec db psql …`.
+
+  # ------------------------------------------------------- FastAPI admin service
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zeeshan}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:-zeeshan}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (32+ random characters) in .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
+      LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-300}
+      # Creates the first admin on first boot (only when no account exists yet).
+      BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:-}
+      BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  # ------------------------------------------------------------ React site (nginx)
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Must be reachable from the browser, not from inside the network.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
+volumes:
+  db-data:
