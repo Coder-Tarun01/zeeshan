@@ -11,11 +11,12 @@ import {
 import type { SiteImage } from '../../data/images'
 import { useMenu } from '../menu/MenuContext'
 import {
-  DEFAULT_PORTION,
-  PORTIONS,
+  defaultVariant,
+  normalizeUnit,
+  normalizeVariant,
   priceFor,
   type MenuItem,
-  type Portion,
+  type Variant,
   type PriceUnit,
 } from '../../data/menu'
 
@@ -24,10 +25,10 @@ export interface BagItem {
   id: string
   name: string
   category?: string
-  /** 'piece' → quantity is a piece count; 'weight' → quantity is portions. */
+  /** 'piece' → quantity is a piece count; weight/plate → quantity is portions or plates. */
   unit: PriceUnit
-  /** Selected weight — by-weight items only. */
-  portion?: Portion
+  /** Selected weight (100g/250g/500g) or plate size (full/half) — by-size items only. */
+  portion?: Variant
   /** Price of one portion (weight) or one piece. */
   unitPrice: number | null
   note?: string
@@ -39,7 +40,7 @@ export interface AddToBagInput {
   name: string
   category?: string
   unit?: PriceUnit
-  portion?: Portion
+  portion?: Variant
   unitPrice?: number | null
   note?: string
   quantity?: number
@@ -51,7 +52,7 @@ interface BagContextValue {
   count: number
   addItem: (input: AddToBagInput) => void
   updateQuantity: (id: string, quantity: number) => void
-  changePortion: (id: string, portion: Portion) => void
+  changePortion: (id: string, portion: Variant) => void
   removeItem: (id: string) => void
   clearBag: () => void
 }
@@ -61,13 +62,10 @@ const BagContext = createContext<BagContextValue | null>(null)
 const STORAGE_KEY = 'zeeshan:order-bag:v1'
 const MAX_QUANTITY = 99
 
-const buildId = (name: string, note: string | undefined, portion: Portion | undefined) =>
+const buildId = (name: string, note: string | undefined, portion: Variant | undefined) =>
   `${name.trim().toLowerCase()}::${portion ?? 'piece'}::${(note ?? '').trim().toLowerCase()}`
 
 const clampQuantity = (value: number) => Math.min(MAX_QUANTITY, Math.max(1, Math.round(value)))
-
-const normalizePortion = (value: unknown): Portion | undefined =>
-  PORTIONS.includes(value as Portion) ? (value as Portion) : undefined
 
 /** localStorage can be blocked (private mode) — sessionStorage keeps the bag for the tab. */
 function readRaw(): string | null {
@@ -105,11 +103,13 @@ function readStoredBag(resolve: (name: string) => MenuItem | undefined): BagItem
       })
       .map((entry) => {
         const stored = entry as Partial<BagItem>
-        const portion = normalizePortion(stored.portion)
+        const portion = normalizeVariant(stored.portion)
         const menuItem = resolve(entry.name)
         const unit: PriceUnit =
-          menuItem?.pricing.unit ?? (stored.unit === 'weight' || portion ? 'weight' : 'piece')
-        const resolvedPortion = unit === 'weight' ? (portion ?? DEFAULT_PORTION) : undefined
+          menuItem?.pricing.unit ??
+          normalizeUnit(stored.unit) ??
+          (portion && (portion === 'full' || portion === 'half') ? 'plate' : portion ? 'weight' : 'piece')
+        const resolvedPortion = unit === 'piece' ? undefined : (portion ?? defaultVariant(unit))
         const unitPrice =
           typeof stored.unitPrice === 'number'
             ? stored.unitPrice
@@ -188,8 +188,10 @@ export function BagProvider({ children }: { children: ReactNode }) {
       const note = input.note?.trim() || undefined
       const menuItem = getByName(input.name)
       const unit: PriceUnit =
-        input.unit ?? menuItem?.pricing.unit ?? (input.portion ? 'weight' : 'piece')
-      const portion = unit === 'weight' ? (normalizePortion(input.portion) ?? DEFAULT_PORTION) : undefined
+        normalizeUnit(input.unit) ??
+        menuItem?.pricing.unit ??
+        (input.portion ? 'weight' : 'piece')
+      const portion = unit === 'piece' ? undefined : (normalizeVariant(input.portion) ?? defaultVariant(unit))
       const unitPrice =
         typeof input.unitPrice === 'number'
           ? input.unitPrice
@@ -247,14 +249,14 @@ export function BagProvider({ children }: { children: ReactNode }) {
   )
 
   /**
-   * Switching the weight keeps the line (or merges it if that weight already
-   * exists) and re-prices it from the menu.
+   * Switching the weight or plate size keeps the line (or merges it if that
+   * choice already exists) and re-prices it from the menu.
    */
   const changePortion = useCallback(
-    (id: string, portion: Portion) => {
+    (id: string, portion: Variant) => {
       const current = itemsRef.current
       const line = current.find((item) => item.id === id)
-      if (!line || line.unit !== 'weight' || line.portion === portion) return
+      if (!line || line.unit === 'piece' || line.portion === portion) return
 
       const menuItem = getByName(line.name)
       const unitPrice = menuItem ? priceFor(menuItem, portion) : line.unitPrice

@@ -1,31 +1,44 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Copy, Download, LogOut, Pencil, Plus, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react'
 import { SiteLayout } from '../components/layout/SiteLayout'
+import { CategoryManager } from '../components/admin/CategoryManager'
 import { ItemForm } from '../components/admin/ItemForm'
 import { AdminLogin } from '../components/admin/AdminLogin'
 import { useMenu } from '../components/menu/MenuContext'
 import { useAdminAuth } from '../hooks/useAdminAuth'
-import { API_BASE_URL } from '../lib/api'
-import { PORTIONS, type MenuItem } from '../data/menu'
+import { API_BASE_URL, resolveMediaUrl } from '../lib/api'
+import { PLATE_SIZES, PORTIONS, type MenuItem } from '../data/menu'
 import { business } from '../data/site'
 import { formatINR } from '../lib/price'
-import { MENU_STORAGE_KEY, menuToJson, menuToTypeScript } from '../lib/menuStore'
+import {
+  CATEGORY_STORAGE_KEY,
+  MENU_STORAGE_KEY,
+  categoriesToTypeScript,
+  categoryLabelFor,
+  menuToJson,
+  menuToTypeScript,
+} from '../lib/menuStore'
 import { HOME_PATH, MENU_PATH, navigate, usePageTitle } from '../lib/router'
 import { cn } from '../lib/cn'
 
 type EditorState = { mode: 'create' } | { mode: 'edit'; id: string } | null
 
-/** "100g ₹60 · 250g ₹150 · 500g ₹300" or "₹60 per piece". */
+/** "100g ₹60 · 250g ₹150 · 500g ₹300", "Full ₹600 · Half ₹350" or "₹60 per piece". */
 function priceLine(item: MenuItem): string {
   const pricing = item.pricing
   if (pricing.unit === 'piece') return `${formatINR(pricing.price)} per piece`
+  if (pricing.unit === 'plate') {
+    return PLATE_SIZES.map(
+      (size) => `${size === 'full' ? 'Full' : 'Half'} ${formatINR(pricing.prices[size])}`,
+    ).join(' · ')
+  }
 
   return PORTIONS.map((portion) => `${portion} ${formatINR(pricing.prices[portion])}`).join(' · ')
 }
 
 export function AdminPage() {
   const auth = useAdminAuth()
-  const { items, soldOutCount, addItem, updateItem, removeItem, setAvailability, resetMenu } =
+  const { items, categories, soldOutCount, addItem, updateItem, removeItem, setAvailability, resetMenu } =
     useMenu()
 
   const [editor, setEditor] = useState<EditorState>(null)
@@ -56,7 +69,10 @@ export function AdminPage() {
     () => items.filter((item) => item.id !== editingItem?.id).map((item) => item.name),
     [items, editingItem?.id],
   )
-  const tsSnippet = useMemo(() => menuToTypeScript(items), [items])
+  const tsSnippet = useMemo(
+    () => `${categoriesToTypeScript(categories)}\n${menuToTypeScript(items)}`,
+    [categories, items],
+  )
 
   const downloadJson = () => {
     const blob = new Blob([menuToJson(items)], { type: 'application/json' })
@@ -72,7 +88,7 @@ export function AdminPage() {
   const copySnippet = async () => {
     try {
       await navigator.clipboard.writeText(tsSnippet)
-      setStatus('menu.ts snippet copied — paste it into src/data/menu.ts')
+      setStatus('Snippet copied — paste the categories and items into src/data/menu.ts')
     } catch {
       setStatus('Copy was blocked by the browser — select the code below and copy it manually.')
     }
@@ -82,7 +98,7 @@ export function AdminPage() {
     resetMenu()
     setConfirmingReset(false)
     setEditor(null)
-    setStatus('Menu restored to the version shipped with the site.')
+    setStatus('Menu and categories restored to the version shipped with the site.')
   }
 
   if (auth.status === 'checking') {
@@ -184,10 +200,16 @@ export function AdminPage() {
           </div>
         </div>
 
-        <dl className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <dl className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="border border-cream/10 bg-night/60 px-5 py-4">
             <dt className="text-[9px] uppercase tracking-[0.16em] text-cream/35">Items</dt>
             <dd className="mt-1 font-display text-[26px] leading-none text-cream">{items.length}</dd>
+          </div>
+          <div className="border border-cream/10 bg-night/60 px-5 py-4">
+            <dt className="text-[9px] uppercase tracking-[0.16em] text-cream/35">Categories</dt>
+            <dd className="mt-1 font-display text-[26px] leading-none text-cream">
+              {categories.length}
+            </dd>
           </div>
           <div className="border border-cream/10 bg-night/60 px-5 py-4">
             <dt className="text-[9px] uppercase tracking-[0.16em] text-cream/35">Sold out</dt>
@@ -202,8 +224,13 @@ export function AdminPage() {
           </div>
           <div className="col-span-2 border border-cream/10 bg-night/60 px-5 py-4 sm:col-span-1">
             <dt className="text-[9px] uppercase tracking-[0.16em] text-cream/35">Saved in</dt>
-            <dd className="mt-1.5 text-[11.5px] leading-relaxed text-cream/50">
-              This browser · <code className="text-cream/70">{MENU_STORAGE_KEY}</code>
+            <dd className="mt-1.5 space-y-1 text-[10.5px] leading-relaxed text-cream/50">
+              <p>
+                This browser · <code className="text-cream/70">{MENU_STORAGE_KEY}</code>
+              </p>
+              <p>
+                <code className="text-cream/70">{CATEGORY_STORAGE_KEY}</code>
+              </p>
             </dd>
           </div>
         </dl>
@@ -268,11 +295,16 @@ export function AdminPage() {
           </p>
         )}
 
+        <div className="mt-7">
+          <CategoryManager />
+        </div>
+
         {editor && (
           <div className="mt-7">
             <ItemForm
               key={editor.mode === 'edit' ? editor.id : 'new'}
               initial={editingItem}
+              categories={categories}
               takenNames={takenNames}
               onCancel={() => {
                 setEditor(null)
@@ -316,7 +348,7 @@ export function AdminPage() {
               className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5"
             >
               <img
-                src={item.image.src}
+                src={resolveMediaUrl(item.image.src)}
                 alt=""
                 loading="lazy"
                 className={cn(
@@ -329,7 +361,7 @@ export function AdminPage() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h2 className="font-display text-[21px] leading-tight text-cream">{item.name}</h2>
                   <span className="text-[8.5px] uppercase tracking-[0.18em] text-cream/30">
-                    {item.category}
+                    {categoryLabelFor(categories, item.category)}
                   </span>
                   {item.tag && (
                     <span className="border border-gold/30 px-2 py-0.5 text-[8px] uppercase tracking-[0.16em] text-gold/80">
@@ -429,9 +461,10 @@ export function AdminPage() {
           <div className="border-t border-cream/10 px-5 py-5">
             <p className="max-w-2xl text-[12.5px] leading-relaxed text-cream/45">
               The panel saves to this browser only. To publish the menu for everyone, copy the
-              snippet below over the <code className="text-cream/70">menuItems</code> array in{' '}
-              <code className="text-cream/70">src/data/menu.ts</code>, then redeploy. Prices,
-              availability and new dishes all travel with it.
+              snippet below into <code className="text-cream/70">src/data/menu.ts</code> — the{' '}
+              <code className="text-cream/70">menuCategories</code> array first, then{' '}
+              <code className="text-cream/70">menuItems</code> — and redeploy. Prices, availability,
+              categories and new dishes all travel with it.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">

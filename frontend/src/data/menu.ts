@@ -10,14 +10,100 @@ export type Portion = (typeof PORTIONS)[number]
 /** Pre-selected weight on cards and quick adds. */
 export const DEFAULT_PORTION: Portion = '250g'
 
-/** `weight` → pick 100g / 250g / 500g. `piece` → quantity is a piece count. */
-export type PriceUnit = 'weight' | 'piece'
+/** Plate sizes — "Full / half" is one option in the form, with a price for each. */
+export const PLATE_SIZES = ['full', 'half'] as const
+export type PlateSize = (typeof PLATE_SIZES)[number]
+/** Pre-selected plate size on cards, quick adds and the order panel. */
+export const DEFAULT_PLATE_SIZE: PlateSize = 'full'
+
+/** `weight` → 100g/250g/500g prices · `plate` → full/half prices · `piece` → one price. */
+export type PriceUnit = 'weight' | 'plate' | 'piece'
 
 export type MenuPricing =
   | { unit: 'weight'; prices: Record<Portion, number> }
+  | { unit: 'plate'; prices: Record<PlateSize, number> }
   | { unit: 'piece'; price: number }
 
-export type MenuCategoryId = 'chicken' | 'mutton'
+/** The choice a customer makes for one line — a weight or a plate size. */
+export type Variant = Portion | PlateSize
+
+/** Reads a stored choice — anything that isn't a weight or plate size becomes `undefined`. */
+export function normalizeVariant(value: unknown): Variant | undefined {
+  return typeof value === 'string' && (isPortion(value) || isPlateSize(value)) ? value : undefined
+}
+
+/** Options for the admin panel's "Sold by" buttons, in display order. */
+export const SOLD_BY_OPTIONS: { id: PriceUnit; label: string; description: string }[] = [
+  {
+    id: 'piece',
+    label: 'Per piece',
+    description: 'One price per piece — the customer orders a piece count.',
+  },
+  {
+    id: 'weight',
+    label: 'By weight',
+    description: 'A price for 100g, 250g and 500g — the customer picks the weight.',
+  },
+  {
+    id: 'plate',
+    label: 'Full / half',
+    description: 'A price for a full plate and one for a half plate — the customer picks either.',
+  },
+]
+
+export const isPortion = (value: string): value is Portion =>
+  (PORTIONS as readonly string[]).includes(value)
+
+export const isPlateSize = (value: string): value is PlateSize =>
+  (PLATE_SIZES as readonly string[]).includes(value)
+
+/** Choices a customer can pick for a line of this unit — empty for per-piece items. */
+export function variantOptions(unit: PriceUnit): readonly Variant[] {
+  if (unit === 'weight') return PORTIONS
+  if (unit === 'plate') return PLATE_SIZES
+  return []
+}
+
+/** The choice a line starts on when the customer hasn't picked one yet. */
+export function defaultVariant(unit: PriceUnit): Variant | undefined {
+  if (unit === 'weight') return DEFAULT_PORTION
+  if (unit === 'plate') return DEFAULT_PLATE_SIZE
+  return undefined
+}
+
+/** "250g" / "full" / "half" / "piece" — how one unit of a line is described. */
+export function unitSuffix(unit: PriceUnit, variant?: Variant): string {
+  if (unit === 'weight') return variant && isPortion(variant) ? variant : DEFAULT_PORTION
+  if (unit === 'plate') return variant && isPlateSize(variant) ? variant : DEFAULT_PLATE_SIZE
+  return 'piece'
+}
+
+/** Reads a stored unit — anything unknown becomes `null`. */
+export function normalizeUnit(value: unknown): PriceUnit | null {
+  return value === 'weight' || value === 'plate' || value === 'piece' ? value : null
+}
+
+/**
+ * Category ids are free-form slugs. The two below are only the **seed**: the
+ * `/admin` panel lets the owner create, rename, reorder and delete categories at
+ * runtime, and stores them in this browser under `zeeshan:categories:v1`.
+ */
+export type MenuCategoryId = string
+
+export interface MenuCategory {
+  /** Stable slug referenced by `MenuItem.category` — never rewritten by a rename. */
+  id: string
+  /** Name shown on the menu filter chips, cards and in the admin panel. */
+  label: string
+  /** Optional note for staff (shown under the label in the admin panel). */
+  description?: string
+}
+
+/** Categories shipped with the site — also the seed for the `/admin` manager. */
+export const menuCategories: MenuCategory[] = [
+  { id: 'chicken', label: 'Chicken' },
+  { id: 'mutton', label: 'Mutton' },
+]
 
 export interface MenuItem {
   id: string
@@ -101,11 +187,17 @@ export function findMenuItemById(id: string): MenuItem | undefined {
   return menuItems.find((item) => item.id === id)
 }
 
-/** Price of one portion (by weight) or one piece; `null` when unknown. */
-export function priceFor(item: MenuItem, portion?: Portion): number | null {
+/** Price of one weight portion, one plate size or one piece; `null` when unknown. */
+export function priceFor(item: MenuItem, variant?: Variant): number | null {
   const pricing = item.pricing
   if (pricing.unit === 'piece') return pricing.price
-  const key = portion ?? DEFAULT_PORTION
+
+  if (pricing.unit === 'weight') {
+    const key = variant && isPortion(variant) ? variant : DEFAULT_PORTION
+    return pricing.prices[key] ?? null
+  }
+
+  const key = variant && isPlateSize(variant) ? variant : DEFAULT_PLATE_SIZE
   return pricing.prices[key] ?? null
 }
 
@@ -113,10 +205,13 @@ export function priceFor(item: MenuItem, portion?: Portion): number | null {
 export function lowestPrice(item: MenuItem): number {
   const pricing = item.pricing
   if (pricing.unit === 'piece') return pricing.price
-  return Math.min(...PORTIONS.map((portion) => pricing.prices[portion]))
+  if (pricing.unit === 'weight') {
+    return Math.min(...PORTIONS.map((portion) => pricing.prices[portion]))
+  }
+  return Math.min(...PLATE_SIZES.map((size) => pricing.prices[size]))
 }
 
-/** Compact price label for lists: "₹60 / piece" or "from ₹60". */
+/** Compact price label for lists: "₹60 / piece" or "from ₹150". */
 export function priceHint(item: MenuItem): string {
   return item.pricing.unit === 'piece'
     ? `${formatINR(item.pricing.price)} / piece`
@@ -124,15 +219,10 @@ export function priceHint(item: MenuItem): string {
 }
 
 export interface MenuFilter {
+  /** `'all'` shows every item; anything else is a category id. */
   id: 'all' | MenuCategoryId
   label: string
 }
-
-export const menuFilters: MenuFilter[] = [
-  { id: 'all', label: 'All Specialities' },
-  { id: 'chicken', label: 'Chicken' },
-  { id: 'mutton', label: 'Mutton' },
-]
 
 /* ------------------------------------------------------------------ specials */
 

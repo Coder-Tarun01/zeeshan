@@ -10,20 +10,9 @@ Uses a throwaway SQLite database so no Postgres server is required.
 
 from __future__ import annotations
 
-import os
-import tempfile
 import unittest
-from pathlib import Path
 
-# Must be set before importing the app: settings are read once at import time.
-_TEMP_DIR = tempfile.mkdtemp(prefix="zeeshan-admin-tests-")
-_DB_PATH = Path(_TEMP_DIR) / "test-admin.db"
-os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH.as_posix()}"
-os.environ["JWT_SECRET"] = "test-secret-please-do-not-use-in-production"
-os.environ["ENVIRONMENT"] = "test"
-os.environ["CORS_ORIGINS"] = "http://localhost:5175"
-os.environ["BOOTSTRAP_USERNAME"] = ""
-os.environ["BOOTSTRAP_PASSWORD"] = ""
+import _env  # noqa: F401  — sets DATABASE_URL / JWT_SECRET / MEDIA_DIR before the app loads
 
 from fastapi.testclient import TestClient  # noqa: E402
 

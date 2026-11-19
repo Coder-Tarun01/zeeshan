@@ -15,7 +15,8 @@ const socialLabel: Record<string, string> = {
   youtube: 'YouTube',
 }
 
-const DELIVERY_HIGHLIGHT = 'FREE DELIVERY'
+/** The rate phrase inside the banner is rendered in gold. */
+const DELIVERY_HIGHLIGHT = `₹${business.delivery.ratePerKm} PER KM`
 const [deliveryBefore, deliveryAfter] = business.delivery.banner.split(DELIVERY_HIGHLIGHT)
 
 export function Footer() {

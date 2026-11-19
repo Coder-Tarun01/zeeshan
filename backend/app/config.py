@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_window_seconds: int = 300
 
+    # Uploaded dish photos.
+    # `media_dir` is relative to the working directory (backend/uploads locally,
+    # /app/uploads in Docker, mounted as a volume so uploads survive restarts).
+    media_dir: str = "uploads"
+    media_url_prefix: str = "/media"
+    max_upload_mb: int = 5
+    media_max_dimension: int = 1600
+
     # Optional first-run admin, created only when the table is empty.
     bootstrap_username: str = ""
     bootstrap_password: str = ""

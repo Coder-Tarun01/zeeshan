@@ -22,11 +22,13 @@ from typing import Any, AsyncIterator
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import repository
 from .config import DEFAULT_JWT_SECRET, settings
 from .db import connection, fetch_one, init_schema
-from .routers import auth
+from .media import media_root
+from .routers import auth, media
 from .schemas import password_policy_error
 from .security import hash_password
 
@@ -78,6 +80,25 @@ def _bootstrap_admin() -> None:
         logger.info("Created the first admin account '%s'", username)
 
 
+def _check_media_directory() -> None:
+    """A read-only volume is a deployment mistake worth shouting about at boot."""
+    root = media_root()
+    probe = root / ".write-check"
+
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        logger.info("Upload directory ready: %s", root)
+    except OSError as error:
+        logger.error(
+            "Upload directory %s is not writable (%s). Photos cannot be uploaded. "
+            "In Docker, make sure the `uploads` volume is owned by uid 10001 "
+            "(rebuild the api image, or `docker compose down` and remove the old volume).",
+            root,
+            error,
+        )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.is_production:
@@ -90,6 +111,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     _init_database()
     _bootstrap_admin()
+    _check_media_directory()
     yield
 
 
@@ -113,6 +135,22 @@ app.add_middleware(
 )
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(media.router, prefix="/api")
+
+# Uploaded photos are served straight from the API host.
+app.mount(settings.media_url_prefix, StaticFiles(directory=str(media_root())), name="media")
+
+
+@app.middleware("http")
+async def media_response_headers(request: Request, call_next):
+    """Uploaded files are user content: no sniffing, long cache, no inline rendering."""
+    response = await call_next(request)
+
+    if request.url.path.startswith(settings.media_url_prefix):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+
+    return response
 
 
 @app.exception_handler(Exception)

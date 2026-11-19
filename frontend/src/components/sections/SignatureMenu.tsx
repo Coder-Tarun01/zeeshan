@@ -1,17 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowUpRight, MessageCircle, SlidersHorizontal } from 'lucide-react'
 import {
-  menuFilters,
   muttonNote,
   DEFAULT_PORTION,
-  PORTIONS,
+  defaultVariant,
   priceFor,
-  type MenuCategoryId,
+  unitSuffix,
+  variantOptions,
+  type MenuFilter,
   type MenuItem,
-  type Portion,
+  type Variant,
 } from '../../data/menu'
 import { images } from '../../data/images'
 import { useMenu } from '../menu/MenuContext'
+import { categoryLabelFor } from '../../lib/menuStore'
 import { formatINR } from '../../lib/price'
 import { enquiryWhatsAppUrl } from '../../lib/whatsapp'
 import { SectionHeading } from '../ui/SectionHeading'
@@ -21,18 +23,29 @@ import { AddToBagButton } from '../order/AddToBagButton'
 import { useOrder } from '../order/OrderContext'
 import { cn } from '../../lib/cn'
 
-const categoryLabel: Record<MenuCategoryId, string> = {
-  chicken: 'Chicken',
-  mutton: 'Mutton',
-}
+/** The panel's `mutton` category also shows the "ask for today's mutton" panel. */
+const MUTTON_CATEGORY_ID = 'mutton'
 
-function MenuCard({ item, index }: { item: MenuItem; index: number }) {
+function MenuCard({
+  item,
+  index,
+  categoryLabel,
+}: {
+  item: MenuItem
+  index: number
+  /** Label of the item's category, resolved from the categories created in the panel. */
+  categoryLabel: string
+}) {
   const { openOrder } = useOrder()
   const soldOut = !item.available
   const isWeight = item.pricing.unit === 'weight'
-  const [portion, setPortion] = useState<Portion>(DEFAULT_PORTION)
-  const unitPrice = priceFor(item, portion)
-  const unitLabel = isWeight ? ` / ${portion}` : ' / piece'
+  const choices = variantOptions(item.pricing.unit)
+  const [variant, setVariant] = useState<Variant>(
+    () => defaultVariant(item.pricing.unit) ?? DEFAULT_PORTION,
+  )
+  const unitPrice = priceFor(item, variant)
+  const unitLabel = ` / ${unitSuffix(item.pricing.unit, variant)}`
+  const selectable = choices.length > 0
 
   return (
     <Reveal as="article" delay={index * 80} className="group relative h-full">
@@ -72,9 +85,7 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
           </span>
 
           <div className="absolute inset-x-0 bottom-0 px-5 pb-4">
-            <p className="text-[8.5px] uppercase tracking-label text-gold/80">
-              {categoryLabel[item.category]}
-            </p>
+            <p className="text-[8.5px] uppercase tracking-label text-gold/80">{categoryLabel}</p>
             <h3 className="mt-1.5 font-display text-[27px] leading-tight text-cream">
               {item.name}
             </h3>
@@ -85,21 +96,23 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
           <p className="text-[13.5px] leading-relaxed text-cream/55">{item.description}</p>
 
           <div className="mt-auto pt-4">
-            {isWeight ? (
+            {selectable ? (
               <>
-                <p className="text-[8px] uppercase tracking-[0.2em] text-cream/35">Weight</p>
+                <p className="text-[8px] uppercase tracking-[0.2em] text-cream/35">
+                  {isWeight ? 'Weight' : 'Plate'}
+                </p>
                 <div
                   role="group"
-                  aria-label={`Weight for ${item.name}`}
+                  aria-label={`${isWeight ? 'Weight' : 'Plate size'} for ${item.name}`}
                   className="mt-1.5 flex gap-1.5"
                 >
-                  {PORTIONS.map((size) => {
-                    const isActive = size === portion
+                  {choices.map((choice) => {
+                    const isActive = choice === variant
                     return (
                       <button
-                        key={size}
+                        key={choice}
                         type="button"
-                        onClick={() => setPortion(size)}
+                        onClick={() => setVariant(choice)}
                         disabled={soldOut}
                         aria-pressed={isActive}
                         className={cn(
@@ -109,7 +122,7 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
                             : 'border-cream/15 text-cream/45 hover:border-gold/45 hover:text-cream/75',
                         )}
                       >
-                        {size}
+                        {choice}
                       </button>
                     )
                   })}
@@ -133,8 +146,8 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
               <AddToBagButton
                 variant="solid"
                 item={item.name}
-                category={`ZEESHAN Menu — ${categoryLabel[item.category]}`}
-                portion={portion}
+                category={`ZEESHAN Menu — ${categoryLabel}`}
+                portion={selectable ? variant : undefined}
                 image={item.image}
               />
               <button
@@ -142,8 +155,8 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
                 onClick={() =>
                   openOrder({
                     item: item.name,
-                    category: `ZEESHAN Menu — ${categoryLabel[item.category]}`,
-                    portion,
+                    category: `ZEESHAN Menu — ${categoryLabel}`,
+                    portion: selectable ? variant : undefined,
                     image: item.image,
                   })
                 }
@@ -165,14 +178,25 @@ function MenuCard({ item, index }: { item: MenuItem; index: number }) {
 }
 
 export function SignatureMenu({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
-  const { items } = useMenu()
-  const [active, setActive] = useState<(typeof menuFilters)[number]['id']>('all')
+  const { items, categories } = useMenu()
+  const [requested, setRequested] = useState<string>('all')
 
+  /** Filter chips come from the categories the owner created in the panel. */
+  const filters = useMemo<MenuFilter[]>(
+    () => [
+      { id: 'all', label: 'All Specialities' },
+      ...categories.map((category) => ({ id: category.id, label: category.label })),
+    ],
+    [categories],
+  )
+
+  /* A category deleted in the panel falls back to "All" instead of an empty grid. */
+  const active = filters.some((filter) => filter.id === requested) ? requested : 'all'
   const visibleItems = active === 'all' ? items : items.filter((item) => item.category === active)
-  const showMuttonPanel = active === 'mutton'
+  const showMuttonPanel = active === MUTTON_CATEGORY_ID
   const description =
     items.length > 0
-      ? "House preparations, fried and finished to order. Chicken Pakodi is sold by weight — 100g, 250g or 500g — and the rest are priced per piece."
+      ? 'House preparations, fried and finished to order. Chicken Pakodi is sold by weight — 100g, 250g or 500g — and the rest are priced per piece, full or half.'
       : 'The menu is being updated. Message us on WhatsApp and we will tell you what is ready today.'
 
   return (
@@ -229,7 +253,7 @@ export function SignatureMenu({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
               role="tablist"
               aria-label="Menu categories"
             >
-              {menuFilters.map((filter) => {
+              {filters.map((filter) => {
                 const isActive = active === filter.id
                 return (
                   <button
@@ -237,7 +261,7 @@ export function SignatureMenu({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    onClick={() => setActive(filter.id)}
+                    onClick={() => setRequested(filter.id)}
                     className={cn(
                       'shrink-0 border px-5 py-3 text-[9.5px] font-semibold uppercase tracking-[0.18em] transition-all duration-300',
                       isActive
@@ -266,7 +290,12 @@ export function SignatureMenu({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
           )}
 
           {visibleItems.map((item, index) => (
-            <MenuCard key={item.id} item={item} index={index} />
+            <MenuCard
+              key={item.id}
+              item={item}
+              index={index}
+              categoryLabel={categoryLabelFor(categories, item.category)}
+            />
           ))}
 
           {showMuttonPanel && (

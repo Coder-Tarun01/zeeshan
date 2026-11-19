@@ -12,6 +12,21 @@ export const API_BASE_URL = (
   configuredBase && configuredBase.length > 0 ? configuredBase : 'http://127.0.0.1:8000'
 ).replace(/\/+$/, '')
 
+/** Largest photo the API accepts (mirrored here for instant client-side feedback). */
+export const MAX_UPLOAD_MB = 5
+export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+/**
+ * Photos uploaded through the admin panel are served by the API (`/media/…`),
+ * while the built-in photographs live on the site origin (`/images/…`).
+ * This resolves either kind to a URL the browser can load.
+ */
+export function resolveMediaUrl(src: string): string {
+  if (!src) return src
+  if (/^(https?:)?\/\//i.test(src) || src.startsWith('data:') || src.startsWith('blob:')) return src
+  return src.startsWith('/media/') ? `${API_BASE_URL}${src}` : src
+}
+
 const TOKEN_KEY = 'zeeshan:admin-token:v1'
 
 export interface AdminUser {
@@ -158,8 +173,65 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T
 }
 
+export interface UploadedImage {
+  url: string
+  width: number
+  height: number
+}
+
+interface MediaPayload {
+  url: string
+  filename: string
+  width: number
+  height: number
+  bytes: number
+}
+
 export const adminApi = {
   health: () => request<{ status: string; database: string }>('/api/health'),
+
+  /** Staff-only photo upload (multipart). Returns the stored URL and its dimensions. */
+  async uploadImage(file: File): Promise<UploadedImage> {
+    const form = new FormData()
+    form.append('file', file)
+
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    const token = readToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+
+    let response: Response
+    try {
+      response = await fetch(`${API_BASE_URL}/api/media`, {
+        method: 'POST',
+        headers,
+        body: form,
+        credentials: 'omit',
+        cache: 'no-store',
+      })
+    } catch {
+      throw new ApiError(`Cannot reach the admin API at ${API_BASE_URL}.`, 0)
+    }
+
+    const text = await response.text()
+    let payload: unknown = null
+    if (text) {
+      try {
+        payload = JSON.parse(text)
+      } catch {
+        payload = null
+      }
+    }
+
+    if (!response.ok) {
+      throw new ApiError(
+        extractDetail(payload) ?? fallbackMessage(response.status),
+        response.status,
+      )
+    }
+
+    const media = payload as MediaPayload
+    return { url: media.url, width: media.width, height: media.height }
+  },
 
   async login(username: string, password: string): Promise<AdminSession> {
     const data = await request<{

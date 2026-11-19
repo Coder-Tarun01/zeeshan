@@ -24,6 +24,7 @@ backend/.venv/
 backend/*.db
 backend/*.db-shm
 backend/*.db-wal
+backend/uploads/
 __pycache__/
 *.py[cod]
 .pytest_cache/

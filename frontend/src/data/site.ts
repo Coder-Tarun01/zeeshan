@@ -22,6 +22,11 @@ export interface BusinessHour {
   time: string
 }
 
+/** Delivery is charged by distance. */
+const DELIVERY_RATE_PER_KM = 5
+/** Distance used in the worked example shown to customers. */
+const DELIVERY_EXAMPLE_KM = 5
+
 export const business = {
   /** Primary brand lockup — shown exactly as on the shop signage. */
   name: 'ZEESHAN',
@@ -72,14 +77,28 @@ export const business = {
   ] as SocialLink[],
 
   /* --------------------------------------------------------------- delivery */
-  /** Delivery offer shown on the order bag page, top bar and footer. */
+  /**
+   * Delivery is charged per kilometre: ₹5 / km. The copy always shows a worked
+   * example ("5 km = ₹25") so the customer knows exactly what to expect.
+   * Change DELIVERY_RATE_PER_KM at the top of this file to re-price delivery.
+   */
   delivery: {
-    title: 'Free Delivery',
-    note: 'On orders above ₹1,000',
-    /** Order value (₹) from which delivery is free — used for the bag/checkout totals. */
-    threshold: 1000,
-    /** Announcement line — "FREE DELIVERY" is highlighted automatically. */
-    banner: 'Orders above ₹1,000 get FREE DELIVERY',
+    /** Rupees per kilometre. */
+    ratePerKm: DELIVERY_RATE_PER_KM,
+    /** Distance used in the worked example below. */
+    exampleKm: DELIVERY_EXAMPLE_KM,
+    /** What that example costs, e.g. 25. */
+    exampleCharge: DELIVERY_RATE_PER_KM * DELIVERY_EXAMPLE_KM,
+    /** Label used in the order summaries. */
+    title: 'Delivery',
+    /** Short explanation, e.g. "₹5 per km — 5 km = ₹25". */
+    note: `₹${DELIVERY_RATE_PER_KM} per km — ${DELIVERY_EXAMPLE_KM} km = ₹${
+      DELIVERY_RATE_PER_KM * DELIVERY_EXAMPLE_KM
+    }`,
+    /** Announcement bar — the "₹5 PER KM" phrase is highlighted automatically. */
+    banner: `DELIVERY ₹${DELIVERY_RATE_PER_KM} PER KM · ${DELIVERY_EXAMPLE_KM} KM = ₹${
+      DELIVERY_RATE_PER_KM * DELIVERY_EXAMPLE_KM
+    }`,
   },
 }
 

@@ -4,7 +4,13 @@ import { useOrder } from './OrderContext'
 import { useBag } from './BagContext'
 import { useMenu } from '../menu/MenuContext'
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll'
-import { DEFAULT_PORTION, PORTIONS, priceFor, type Portion } from '../../data/menu'
+import {
+  defaultVariant,
+  priceFor,
+  unitSuffix,
+  variantOptions,
+  type Variant,
+} from '../../data/menu'
 import { formatINR } from '../../lib/price'
 import { buildOrderMessage, buildWhatsAppUrl, isWhatsAppConfigured } from '../../lib/whatsapp'
 import { BAG_PATH, navigate } from '../../lib/router'
@@ -16,7 +22,7 @@ export function OrderModal() {
   const { getByName } = useMenu()
   const [quantity, setQuantity] = useState(1)
   const [note, setNote] = useState('')
-  const [portion, setPortion] = useState<Portion>(DEFAULT_PORTION)
+  const [portion, setPortion] = useState<Variant>('250g')
 
   const panelRef = useRef<HTMLDivElement>(null)
   const previouslyFocused = useRef<HTMLElement | null>(null)
@@ -27,10 +33,12 @@ export function OrderModal() {
   /* Reset the form whenever a new item is opened. */
   useEffect(() => {
     if (!request) return
+    const menuItem = getByName(request.item)
+    const fallback = menuItem ? defaultVariant(menuItem.pricing.unit) : undefined
     setQuantity(1)
     setNote('')
-    setPortion(request.portion ?? DEFAULT_PORTION)
-  }, [request])
+    setPortion(request.portion ?? fallback ?? '250g')
+  }, [request, getByName])
 
   /* Focus management + Escape to close. */
   useEffect(() => {
@@ -78,22 +86,28 @@ export function OrderModal() {
   const menuItem = getByName(request.item)
   const soldOut = Boolean(menuItem) && !menuItem?.available
   const unit = menuItem?.pricing.unit ?? 'piece'
-  const isWeight = unit === 'weight'
+  const choices = variantOptions(unit)
+  const selectable = choices.length > 0
   const unitPrice = menuItem ? priceFor(menuItem, portion) : null
   const lineTotal = typeof unitPrice === 'number' ? unitPrice * quantity : null
-  const quantityUnit = isWeight
-    ? quantity === 1
-      ? 'portion'
-      : 'portions'
-    : quantity === 1
-      ? 'piece'
-      : 'pieces'
+  const quantityUnit =
+    unit === 'piece'
+      ? quantity === 1
+        ? 'piece'
+        : 'pieces'
+      : unit === 'plate'
+        ? quantity === 1
+          ? 'plate'
+          : 'plates'
+        : quantity === 1
+          ? 'portion'
+          : 'portions'
 
   const message = buildOrderMessage({
     item: request.item,
     quantity,
     note,
-    portion: isWeight ? portion : undefined,
+    portion: selectable ? portion : undefined,
     unit,
     unitPrice,
     category: request.category,
@@ -107,7 +121,7 @@ export function OrderModal() {
       name: request.item,
       category: request.category,
       unit,
-      portion: isWeight ? portion : undefined,
+      portion: selectable ? portion : undefined,
       unitPrice,
       note,
       quantity,
@@ -166,7 +180,7 @@ export function OrderModal() {
           <dt className="label-caps">Price</dt>
           <dd className="text-cream/75">
             {typeof unitPrice === 'number'
-              ? `${formatINR(unitPrice)} ${isWeight ? `per ${portion}` : 'per piece'}`
+              ? `${formatINR(unitPrice)} per ${unitSuffix(unit, portion)}`
               : 'Confirmed on WhatsApp'}
           </dd>
         </dl>
@@ -180,19 +194,19 @@ export function OrderModal() {
           </p>
         )}
 
-        {isWeight && (
+        {selectable && (
           <div className="mt-6">
             <p className="label-caps" id="order-portion-label">
-              Weight
+              {unit === 'plate' ? 'Plate size' : 'Weight'}
             </p>
             <div role="group" aria-labelledby="order-portion-label" className="mt-2 flex gap-2">
-              {PORTIONS.map((size) => {
-                const isActive = size === portion
+              {choices.map((choice) => {
+                const isActive = choice === portion
                 return (
                   <button
-                    key={size}
+                    key={choice}
                     type="button"
-                    onClick={() => setPortion(size)}
+                    onClick={() => setPortion(choice)}
                     aria-pressed={isActive}
                     className={cn(
                       'flex-1 border px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-all duration-300',
@@ -201,7 +215,7 @@ export function OrderModal() {
                         : 'border-cream/15 text-cream/55 hover:border-gold/50 hover:text-cream',
                     )}
                   >
-                    {size}
+                    {choice}
                   </button>
                 )
               })}
@@ -244,7 +258,11 @@ export function OrderModal() {
               </button>
             </div>
             <span className="text-[11px] uppercase tracking-[0.16em] text-cream/35">
-              {isWeight ? 'Portions' : 'Pieces'}
+              {quantityUnit === 'piece' || quantityUnit === 'pieces'
+                ? 'Pieces'
+                : quantityUnit === 'plate' || quantityUnit === 'plates'
+                  ? 'Plates'
+                  : 'Portions'}
             </span>
           </div>
         </div>

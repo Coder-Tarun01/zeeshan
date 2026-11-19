@@ -17,6 +17,8 @@ frontend (Vite/React)  ──POST /api/auth/login──▶  FastAPI  ──▶  
 | `GET` | `/api/auth/me` | Current admin (requires the bearer token) |
 | `POST` | `/api/auth/logout` | 204 — the client drops its token |
 | `POST` | `/api/auth/change-password` | `{current_password, new_password}` → 204 |
+| `POST` | `/api/media` | **Staff only.** Multipart `file` → `{url, filename, width, height, bytes}` |
+| `GET` | `/media/<file>` | The stored photo (public, `nosniff`, cacheable for a year) |
 | `GET` | `/api/health` | `{status, database, environment}` |
 
 Interactive docs: **`http://127.0.0.1:8000/api/docs`**
@@ -30,6 +32,7 @@ Interactive docs: **`http://127.0.0.1:8000/api/docs`**
 | Brute force | 5 failed attempts per IP+username in 5 minutes → `429` with `Retry-After`. |
 | User enumeration | Unknown usernames are still verified against a real dummy hash, and both cases return the same message. |
 | Deactivation | `is_active` is checked on login **and** on every authenticated request. |
+| Photo uploads | JPEG/PNG/WebP only, decoded with Pillow (so disguised files and SVG are rejected), EXIF-rotated, metadata stripped, resized to 1600 px, re-encoded as JPEG, stored under a random name. Size cap `MAX_UPLOAD_MB` (5). Served with `X-Content-Type-Options: nosniff`. |
 | Production safety | The app refuses to boot with `ENVIRONMENT=production` if `JWT_SECRET` is missing, default, or shorter than 32 characters. |
 | CORS | Only the origins in `CORS_ORIGINS` may call the API. |
 
@@ -112,9 +115,11 @@ username. The same rules apply to `/api/auth/change-password`.
 python -m unittest discover -s tests -v
 ```
 
-13 tests cover: login success/failure, identical errors for unknown users, inactive accounts,
+22 tests cover: login success/failure, identical errors for unknown users, inactive accounts,
 token validation (missing/garbage/forged), `/me`, logout, password change, rate limiting,
-payload validation, repeated `/me` calls, and cross-thread connection closing.
+payload validation, repeated `/me` calls, cross-thread connection closing, and the photo upload
+endpoint (auth required, normalisation + resize, serving headers, random names, non-image /
+disguised / SVG / oversized rejections, WebP support).
 
 ## Files
 

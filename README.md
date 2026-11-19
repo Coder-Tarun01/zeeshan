@@ -48,7 +48,7 @@ docker compose up -d --build
 | Service | URL / port | Notes |
 | --- | --- | --- |
 | **web** (nginx) | http://localhost:8080 | built SPA, SPA-fallback routing, gzip, immutable asset caching |
-| **api** (uvicorn) | http://localhost:8000 · docs at `/api/docs` | FastAPI + PostgreSQL |
+| **api** (uvicorn) | http://localhost:8000 · docs at `/api/docs` | FastAPI + PostgreSQL, serves uploaded photos at `/media/…` |
 | **db** (PostgreSQL 16) | internal `5432` only | data in the `db-data` volume |
 
 ```bash
@@ -77,6 +77,14 @@ docker compose exec db psql -U zeeshan -d zeeshan -c "select username, role, las
   `BOOTSTRAP_USERNAME` / `BOOTSTRAP_PASSWORD`. Clear the password from `.env` once you have signed
   in and changed it.
 * `ENVIRONMENT=production` makes the API refuse to start without a `JWT_SECRET` of 32+ characters.
+* **Uploaded photos** live on the `uploads` volume (mounted at `/app/uploads`) and are served by the
+  API at `/media/<random>.jpg`. `docker compose down -v` deletes them together with the database, so
+  back that volume up before wiping it:
+
+  ```bash
+  docker run --rm -v zeeshan_uploads:/data -v "$PWD":/backup alpine \
+    tar czf /backup/uploads-backup.tgz -C /data .
+  ```
 
 **Port conflicts.** If `docker compose up` says `Bind for 0.0.0.0:8000 failed: port is already
 allocated`, set `API_PORT=8001` (and `VITE_API_URL=http://localhost:8001`) in `.env`, then
@@ -120,17 +128,20 @@ links only render when a URL exists, so there are no dead links.
 
 * `menuItems` — the five supplied items, **names preserved exactly**:
   `Chicken Pakodi`, `Chicken Joint`, `Chicken Lollipop`, `Reshma`, `Vuda`.
-* `pricing` — the owner's rates, in one of two shapes:
-  * **Chicken Pakodi is the only item sold by weight**:
-    `{ unit: 'weight', prices: { '100g': 60, '250g': 150, '500g': 300 } }`. Customers pick
-    100g / 250g / 500g on the card, in the order panel or in the bag.
-  * **The other four are sold per piece**: `{ unit: 'piece', price: 60 }` —
-    Joint ₹60, Reshma ₹30, Chicken Lollipop ₹25, Vuda ₹20. The quantity in the bag is the
-    piece count.
+* `pricing` — the owner's rates. The **Sold by** buttons in the form pick one of three units:
+  * **Per piece** — `{ unit: 'piece', price: 60 }` — Joint ₹60, Reshma ₹30, Chicken Lollipop ₹25,
+    Vuda ₹20. The quantity in the bag is the piece count.
+  * **By weight** — `{ unit: 'weight', prices: { '100g': 60, '250g': 150, '500g': 300 } }`.
+    Chicken Pakodi is the one item sold this way; customers pick 100g / 250g / 500g on the card, in
+    the order panel or in the bag.
+  * **Full / half** — `{ unit: 'plate', prices: { full: 600, half: 350 } }` — one price box per
+    plate size, and the customer gets **Full / Half** buttons on the card (order panel and bag too).
   Every rate on the site (cards, chips, order panel, bag, checkout, WhatsApp message) is read
   from `pricing`; totals are calculated in `frontend/src/lib/price.ts`.
 * `description` — short, editable copy.
-* Add mutton dishes by appending items with `category: 'mutton'`. They appear in the Mutton filter.
+* `menuCategories` (top of `menu.ts`) lists the categories — `chicken` and `mutton` to start. Each
+  item's `category` is one of those ids; the ids are what the code compares, so they're stable even
+  when a label is renamed. Day to day, add / rename / reorder / delete categories in `/admin` (§3).
 * `chickenSpecials` powers the Chicken Specials section; each entry carries the `menuId` of its
   menu item so the price and weight options always come from `menuItems`. `muttonNote` is the
   editable mutton block.
@@ -167,8 +178,12 @@ Then open **`/admin`**, sign in, and the manager appears:
 | Action | How |
 | --- | --- |
 | **Mark sold out / available** | Click the gold **Available** / burgundy **Sold out** switch on any row. |
-| **Add an item** | **Add new item** → name, category, *per piece* or *by weight* (100g/250g/500g prices), description, photo, badge, availability → **Add item**. |
-| **Edit an item** | **Edit** → change any field, including prices → **Save changes**. |
+| **Add a category** | **Categories** panel → **New category** → name (+ optional staff note) → **Add category**. It appears instantly as a filter chip on `/menu` and as an option in the item form. |
+| **Rename / reorder categories** | **Edit** on the category row → change the name or note → **Save category**; use the **↑ / ↓** arrows to set the order of the filter chips. The id stays the same, so items keep their place. |
+| **Delete a category** | **Delete** → **Confirm delete**. Blocked while items are still filed under it (the count is shown) and the last remaining category can't be removed. |
+| **Add an item** | **Add new item** → name, category, **Sold by** (*per piece* / *by weight* / *full / half*), the matching price(s), description, **upload a photo**, badge, availability → **Add item**. |
+| **Edit an item** | **Edit** → change any field, including prices and the photo → **Save changes**. |
+| **Upload a photo** | Click the photo in the form (or drag one onto it) → pick a JPEG/PNG/WebP → it uploads to the API and becomes the item's photo. |
 | **Delete an item** | **Delete** → **Delete** again to confirm. |
 | **Undo everything** | **Reset to shipped menu** → **Confirm reset**. |
 | **Sign out** | The **Sign out** button beside **View menu**. |
@@ -183,13 +198,31 @@ Then open **`/admin`**, sign in, and the manager appears:
 * Five wrong passwords in five minutes lock that username for five minutes.
 * The panel sends `noindex, nofollow`, and `/api/docs` is the API's own documentation.
 
+### Photos
+
+The **photo field** in the add/edit form is an upload: click it (or drag a file onto it) and the
+browser posts the image to `POST /api/media` with the staff token.
+
+* Accepted: **JPEG, PNG or WebP**, up to **5 MB** (`MAX_UPLOAD_MB`).
+* The API decodes it, strips metadata, rotates according to EXIF, shrinks the longest edge to
+  **1600 px** (`MEDIA_MAX_DIMENSION`) and re-encodes it as an optimised JPEG.
+* It returns `{ url: "/media/<random>.jpg", width, height }`; the panel shows the new photo
+  immediately and the menu item stores that URL.
+* Files live in the API's upload directory: `backend/uploads/` locally, the **`uploads` Docker
+  volume** in Compose. Nothing is ever written into `frontend/public`, so uploads never need a
+  rebuild — and never overwrite the shipped photography.
+* Only `jpeg/png/webp` pass, the file must actually decode (disguised files and SVG are rejected),
+  and the filename is random, so uploads can't be used to write over anything.
+
 ### Where the menu is saved
 
-The panel still writes the menu to `localStorage` (`zeeshan:menu:v1`) in the browser that made the
-change, so it applies immediately on that device. To publish a menu change for every visitor, use
-**Copy menu.ts snippet** at the bottom of `/admin` and paste it over `menuItems` in
-`frontend/src/data/menu.ts`, then redeploy. The login is server-side; moving the menu itself into
-Postgres is the next step if you want live updates for all customers.
+The panel writes to `localStorage` in the browser that made the change — the menu under
+`zeeshan:menu:v1` and the categories under `zeeshan:categories:v1` — so changes apply immediately on
+that device (and in its other tabs). To publish a change for every visitor, use **Copy menu.ts
+snippet** at the bottom of `/admin`: it contains both the `menuCategories` and the `menuItems` arrays.
+Paste them over the matching arrays in `frontend/src/data/menu.ts`, then redeploy. The login is
+server-side; moving the menu itself into Postgres is the next step if you want live updates for all
+customers.
 
 ### Configuration
 
@@ -247,7 +280,7 @@ the About collage in one go:
 3. The **order bag page** at **`/bag`** (bag icon in the navbar, with a live count badge) shows the
    items on the left — photo, weight or piece count, quantity, line price, remove — and the
    **Order Summary** on the right with the **subtotal**, the **total amount**, **Proceed to
-   Checkout**, **Continue Shopping** and the **Free Delivery / On orders above ₹1000** offer.
+   Checkout**, **Continue Shopping** and the delivery rate — **₹5 per km** (5 km = ₹25).
 4. **Checkout** (`/checkout`) collects the delivery details, then **Place Order** opens WhatsApp with
    the whole order plus the address — one consolidated message, e.g.:
 
@@ -266,7 +299,8 @@ the About collage in one go:
    Address: 12-A, Near the temple, Kochi, Kerala - 682001
    Email: ali@example.com
 
-   Please confirm availability, delivery and the final total. Thank you!
+   Delivery is charged at ₹5 per km. Please confirm availability, the distance and the final total.
+   Thank you!
    ```
 
 The bag is written to `localStorage` **synchronously on every change** (`zeeshan:order-bag:v1`), so the
@@ -305,10 +339,13 @@ right (`frontend/src/components/forms/ContactForm.tsx`) — Name\*, Phone Number
 then **Send via WhatsApp**. Name and Description are required; phone/email are optional but validated
 when filled. The map sits full-width beneath both columns.
 
-**Delivery promo:** `business.delivery.banner` — *"Orders above ₹1000 get FREE DELIVERY"* — powers the
-slim burgundy bar above the navbar on every page (`components/layout/TopBar.tsx`) and the matching
-strip at the top of the footer. `business.delivery.note` ("On orders above ₹1000") is used inside the
-order summaries.
+**Delivery rate:** `business.delivery` in `frontend/src/data/site.ts` — **₹5 per kilometre**, with a
+worked example (*"₹5 per km — 5 km = ₹25"*) so the price is unambiguous. `ratePerKm` (and
+`DELIVERY_RATE_PER_KM` at the top of that file) drive every piece of copy: `banner` powers the slim
+burgundy bar above the navbar on every page (`components/layout/TopBar.tsx`) and the matching strip at
+the top of the footer, while `title` + `note` fill the delivery card inside the bag and checkout order
+summaries. The summaries state the rate next to the subtotal and note that the distance (and therefore
+the final total) is confirmed on WhatsApp. Change the constant once and the rate updates everywhere.
 
 **Form validation:** every field on `/checkout` and `/contact` is validated — required checks,
 min/max lengths, name/place character rules, 6-digit pincode (not starting with 0), 10-digit mobile
@@ -340,7 +377,7 @@ frontend/
     lib/
       router.ts               navigate / usePathname / link interception / #anchor scrolling
       api.ts                  admin API client + token storage (sessionStorage)
-      menuStore.ts            menu persistence (localStorage) + JSON / menu.ts export
+      menuStore.ts            menu + category persistence (localStorage) and menu.ts export
       price.ts                ₹ formatting, line totals, bag subtotal
       phone.ts                mobile normalisation + validation
       validation.ts           shared field validators for the checkout + contact forms
@@ -355,8 +392,9 @@ frontend/
                               About, WhyChoose, Gallery, Contact, MarqueeStrip, ExplorePages
       order/                  OrderContext + OrderModal (item panel),
                               BagContext (bag state + persistence)
-      menu/                   MenuContext — live menu + availability for the whole app
-      admin/                  AdminLogin (sign-in card), ItemForm (add / edit a dish)
+      menu/                   MenuContext — live menu, categories and availability for the whole app
+      admin/                  AdminLogin (sign-in card), ItemForm (add / edit a dish),
+                              CategoryManager + CategoryForm (create / rename / reorder / delete categories)
       forms/                  ContactForm (contact-page WhatsApp enquiry)
       ui/                     Reveal, SectionHeading, SmartImage
     pages/
@@ -376,12 +414,14 @@ frontend/
   Dockerfile · nginx.conf · .dockerignore
 
 backend/                      FastAPI + PostgreSQL auth service (see backend/README.md)
-  app/main.py                 app, CORS, startup (schema + optional bootstrap), /api/health
+  app/main.py                 app, CORS, startup (schema + optional bootstrap), /api/health, /media
   app/routers/auth.py         login (throttled), me, logout, change-password
+  app/routers/media.py        staff-only photo upload
+  app/media.py                image validation, EXIF-safe resize, storage
   app/security.py             scrypt password hashing + JWT signing
   app/db.py                   PostgreSQL (psycopg) / SQLite dev connections + schema
   app/cli.py                  create-admin / reset-password / list-admins / deactivate
-  tests/test_auth.py          13 API tests
+  tests/                      22 API tests
   Dockerfile · .dockerignore
 
 docker-compose.yml            db + api + web (see “Docker” above)

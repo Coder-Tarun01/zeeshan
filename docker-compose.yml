@@ -41,12 +41,18 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
       LOGIN_WINDOW_SECONDS: ${LOGIN_WINDOW_SECONDS:-300}
+      # Uploaded dish photos (served at /media, stored on the uploads volume).
+      MEDIA_DIR: /app/uploads
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-5}
+      MEDIA_MAX_DIMENSION: ${MEDIA_MAX_DIMENSION:-1600}
       # Creates the first admin on first boot (only when no account exists yet).
       BOOTSTRAP_USERNAME: ${BOOTSTRAP_USERNAME:-}
       BOOTSTRAP_PASSWORD: ${BOOTSTRAP_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
     ports:
       - "${API_PORT:-8000}:8000"
 
@@ -65,3 +71,4 @@ services:
 
 volumes:
   db-data:
+  uploads:

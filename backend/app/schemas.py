@@ -27,6 +27,16 @@ class LoginResponse(BaseModel):
     user: AdminUserOut
 
 
+class MediaOut(BaseModel):
+    """Result of an upload — a relative URL the site resolves against the API host."""
+
+    url: str
+    filename: str
+    width: int
+    height: int
+    bytes: int
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(min_length=1, max_length=200)
     new_password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=200)

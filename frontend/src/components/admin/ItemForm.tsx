@@ -1,14 +1,26 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Check, X } from 'lucide-react'
-import type { MenuItem, MenuPricing, Portion } from '../../data/menu'
+import type { SiteImage } from '../../data/images'
+import type {
+  MenuCategory,
+  MenuItem,
+  MenuPricing,
+  PlateSize,
+  Portion,
+  PriceUnit,
+} from '../../data/menu'
+import { PLATE_SIZES, SOLD_BY_OPTIONS, unitSuffix } from '../../data/menu'
 import type { MenuItemDraft } from '../menu/MenuContext'
-import { MENU_CATEGORIES, menuImageOptions } from '../../lib/menuStore'
+import { ImageUploadField } from './ImageUploadField'
+import { menuImageOptions } from '../../lib/menuStore'
 import { formatINR } from '../../lib/price'
 import { cn } from '../../lib/cn'
 
 interface ItemFormProps {
   /** Item being edited; omitted when adding a new one. */
   initial?: MenuItem
+  /** Categories created in the panel — the only valid values for the field. */
+  categories: MenuCategory[]
   /** Names already on the menu (excluding this item) — used for the duplicate check. */
   takenNames: string[]
   onSubmit: (draft: MenuItemDraft) => boolean
@@ -21,6 +33,7 @@ const inputClass =
 const labelClass = 'text-[9px] font-medium uppercase tracking-[0.18em] text-cream/45'
 
 const defaultWeightPrices: Record<Portion, string> = { '100g': '', '250g': '', '500g': '' }
+const defaultPlatePrices: Record<PlateSize, string> = { full: '', half: '' }
 
 /** Prices arrive as strings from the inputs and are parsed on submit. */
 function parsePrice(value: string): number | null {
@@ -28,17 +41,14 @@ function parsePrice(value: string): number | null {
   return Number.isFinite(price) && price > 0 ? price : null
 }
 
-export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormProps) {
+export function ItemForm({ initial, categories, takenNames, onSubmit, onCancel }: ItemFormProps) {
   const fieldId = useId()
-  const initialImageKey =
-    menuImageOptions.find((option) => option.image.src === initial?.image.src)?.key ??
-    menuImageOptions[0].key
 
   const [name, setName] = useState(initial?.name ?? '')
-  const [category, setCategory] = useState(initial?.category ?? 'chicken')
+  const [category, setCategory] = useState(initial?.category ?? categories[0]?.id ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [unit, setUnit] = useState<'weight' | 'piece'>(initial?.pricing.unit ?? 'piece')
-  const [piecePrice, setPiecePrice] = useState(
+  const [unit, setUnit] = useState<PriceUnit>(initial?.pricing.unit ?? 'piece')
+  const [unitPrice, setUnitPrice] = useState(
     initial?.pricing.unit === 'piece' ? String(initial.pricing.price) : '',
   )
   const [weightPrices, setWeightPrices] = useState<Record<Portion, string>>(
@@ -50,7 +60,15 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
         }
       : defaultWeightPrices,
   )
-  const [imageKey, setImageKey] = useState(initialImageKey)
+  const [platePrices, setPlatePrices] = useState<Record<PlateSize, string>>(
+    initial?.pricing.unit === 'plate'
+      ? {
+          full: String(initial.pricing.prices.full),
+          half: String(initial.pricing.prices.half),
+        }
+      : defaultPlatePrices,
+  )
+  const [image, setImage] = useState<SiteImage>(initial?.image ?? menuImageOptions[0].image)
   const [tag, setTag] = useState(initial?.tag ?? '')
   const [available, setAvailable] = useState(initial?.available ?? true)
   const [error, setError] = useState<string | null>(null)
@@ -84,19 +102,24 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
         prices[portion] = price
       }
       pricing = { unit: 'weight', prices }
+    } else if (unit === 'plate') {
+      const prices = {} as Record<PlateSize, number>
+      for (const size of PLATE_SIZES) {
+        const price = parsePrice(platePrices[size])
+        if (price === null) {
+          setError(`Enter the ${size} plate price.`)
+          return
+        }
+        prices[size] = price
+      }
+      pricing = { unit: 'plate', prices }
     } else {
-      const price = parsePrice(piecePrice)
+      const price = parsePrice(unitPrice)
       if (price === null) {
         setError('Enter the price per piece.')
         return
       }
       pricing = { unit: 'piece', price }
-    }
-
-    const image = menuImageOptions.find((option) => option.key === imageKey)?.image
-    if (!image) {
-      setError('Pick a photo for the item.')
-      return
     }
 
     const saved = onSubmit({
@@ -164,26 +187,34 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
           <select
             id={`${fieldId}-category`}
             value={category}
-            onChange={(event) => setCategory(event.target.value as MenuItem['category'])}
+            onChange={(event) => setCategory(event.target.value)}
             className={cn(inputClass, 'cursor-pointer')}
           >
-            {MENU_CATEGORIES.map((option) => (
+            {categories.map((option) => (
               <option key={option.id} value={option.id} className="bg-night text-cream">
                 {option.label}
               </option>
             ))}
+            {category !== '' && !categories.some((option) => option.id === category) && (
+              <option value={category} className="bg-night text-cream">
+                {category} (not in the list)
+              </option>
+            )}
+            {categories.length === 0 && (
+              <option value="" className="bg-night text-cream">
+                Add a category first
+              </option>
+            )}
           </select>
+          <p className="mt-1.5 text-[10.5px] text-cream/30">
+            Create or rename categories in the panel above.
+          </p>
         </div>
 
         <div className="sm:col-span-2">
           <span className={labelClass}>Sold by</span>
-          <div className="mt-1.5 flex gap-2">
-            {(
-              [
-                { id: 'piece', label: 'Per piece' },
-                { id: 'weight', label: 'By weight (100g / 250g / 500g)' },
-              ] as const
-            ).map((option) => {
+          <div className="mt-1.5 grid grid-cols-3 gap-2">
+            {SOLD_BY_OPTIONS.map((option) => {
               const isActive = unit === option.id
               return (
                 <button
@@ -191,8 +222,9 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
                   type="button"
                   onClick={() => setUnit(option.id)}
                   aria-pressed={isActive}
+                  title={option.description}
                   className={cn(
-                    'flex-1 border px-3 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] transition-all duration-300',
+                    'border px-2 py-2.5 text-[9px] font-semibold uppercase tracking-[0.12em] transition-all duration-300',
                     isActive
                       ? 'border-gold bg-gold text-ink'
                       : 'border-cream/15 text-cream/60 hover:border-gold/50 hover:text-cream',
@@ -203,6 +235,9 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
               )
             })}
           </div>
+          <p className="mt-1.5 text-[10.5px] text-cream/30">
+            {(SOLD_BY_OPTIONS.find((option) => option.id === unit) ?? SOLD_BY_OPTIONS[0]).description}
+          </p>
         </div>
 
         {unit === 'weight' ? (
@@ -234,24 +269,59 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
               ))}
             </div>
           </div>
+        ) : unit === 'plate' ? (
+          <div className="sm:col-span-2">
+            <span className={labelClass}>Full / half prices (₹) *</span>
+            <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+              {PLATE_SIZES.map((size) => (
+                <div key={size}>
+                  <label
+                    className="text-[9px] uppercase tracking-[0.16em] text-cream/35"
+                    htmlFor={`${fieldId}-${size}`}
+                  >
+                    {size}
+                  </label>
+                  <input
+                    id={`${fieldId}-${size}`}
+                    value={platePrices[size]}
+                    onChange={(event) =>
+                      setPlatePrices((current) => ({
+                        ...current,
+                        [size]: event.target.value.replace(/[^\d]/g, '').slice(0, 6),
+                      }))
+                    }
+                    inputMode="numeric"
+                    placeholder="0"
+                    className={cn(inputClass, 'mt-1')}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-cream/30">
+              Customers pick <span className="text-cream/50">Full</span> or{' '}
+              <span className="text-cream/50">Half</span> on the card, exactly like the weight
+              options.
+            </p>
+          </div>
         ) : (
           <div className="sm:col-span-2">
-            <label className={labelClass} htmlFor={`${fieldId}-piece`}>
+            <label className={labelClass} htmlFor={`${fieldId}-unit-price`}>
               Price per piece (₹) <span className="text-gold">*</span>
             </label>
             <input
-              id={`${fieldId}-piece`}
-              value={piecePrice}
+              id={`${fieldId}-unit-price`}
+              value={unitPrice}
               onChange={(event) =>
-                setPiecePrice(event.target.value.replace(/[^\d]/g, '').slice(0, 6))
+                setUnitPrice(event.target.value.replace(/[^\d]/g, '').slice(0, 6))
               }
               inputMode="numeric"
               placeholder="0"
               className={inputClass}
             />
-            {parsePrice(piecePrice) !== null && (
+            {parsePrice(unitPrice) !== null && (
               <p className="mt-1.5 text-[11px] text-cream/30">
-                Shows as {formatINR(parsePrice(piecePrice) as number)} / piece
+                Shows as {formatINR(parsePrice(unitPrice) as number)} /{' '}
+                {unitSuffix(unit)}
               </p>
             )}
           </div>
@@ -272,21 +342,7 @@ export function ItemForm({ initial, takenNames, onSubmit, onCancel }: ItemFormPr
         </div>
 
         <div>
-          <label className={labelClass} htmlFor={`${fieldId}-photo`}>
-            Photo
-          </label>
-          <select
-            id={`${fieldId}-photo`}
-            value={imageKey}
-            onChange={(event) => setImageKey(event.target.value as typeof imageKey)}
-            className={cn(inputClass, 'cursor-pointer')}
-          >
-            {menuImageOptions.map((option) => (
-              <option key={option.key} value={option.key} className="bg-night text-cream">
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <ImageUploadField image={image} onChange={setImage} />
         </div>
 
         <div>

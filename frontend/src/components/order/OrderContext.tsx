@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 import type { SiteImage } from '../../data/images'
-import type { Portion } from '../../data/menu'
+import type { Variant } from '../../data/menu'
 import { OrderModal } from './OrderModal'
 
 export interface OrderRequest {
   item: string
   category?: string
-  /** Weight pre-selected on the card that opened the panel (by-weight items). */
-  portion?: Portion
+  /** Weight or plate size pre-selected on the card that opened the panel. */
+  portion?: Variant
   /** Optional photo shown in the order bag. */
   image?: SiteImage
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SiteImage } from '../../data/images'
+import { resolveMediaUrl } from '../../lib/api'
 import { cn } from '../../lib/cn'
 
 interface SmartImageProps {
@@ -36,7 +37,7 @@ export function SmartImage({ image, className, imgClassName, priority = false, s
         </div>
       ) : (
         <img
-          src={image.src}
+          src={resolveMediaUrl(image.src)}
           alt={image.alt}
           width={image.width}
           height={image.height}

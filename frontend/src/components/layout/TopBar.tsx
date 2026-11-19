@@ -1,11 +1,12 @@
 import { Truck } from 'lucide-react'
 import { business } from '../../data/site'
 
-const HIGHLIGHT = 'FREE DELIVERY'
+/** The rate phrase inside the banner is rendered in gold. */
+const HIGHLIGHT = `₹${business.delivery.ratePerKm} PER KM`
 
 /**
  * Slim announcement bar pinned above the navbar.
- * Copy comes from `business.delivery.banner`; the free-delivery phrase is gold.
+ * Copy comes from `business.delivery.banner`; the per-km rate is gold.
  */
 export function TopBar() {
   const [before, after] = business.delivery.banner.split(HIGHLIGHT)

@@ -29,10 +29,11 @@ export interface OrderMessageInput {
   category?: string
 }
 
-/** " — 250g" for a weight, nothing for a piece count. */
+/** " — 250g" / " — full" for a by-size line, nothing for a piece count. */
 function sizeSuffix(unit: PriceUnit | undefined, portion: string | undefined): string {
-  if (unit === 'piece') return ''
-  return portion ? ` — ${portion}` : ''
+  if (!portion) return ''
+  if (unit === 'weight' || unit === 'plate') return ` — ${portion}`
+  return ''
 }
 
 /** The exact message a customer sends when tapping "Order Now". */
@@ -53,8 +54,10 @@ export function buildOrderMessage({
   ]
 
   if (typeof unitPrice === 'number') {
-    lines[lines.length - 1] += unit === 'piece'
-      ? ` (${formatINR(unitPrice)} per piece)`
+    const per =
+      unit === 'piece' ? 'piece' : unit === 'weight' || unit === 'plate' ? portion : undefined
+    lines[lines.length - 1] += per
+      ? ` (${formatINR(unitPrice)} per ${per})`
       : ` (${formatINR(unitPrice)} each)`
     lines.push(`Estimated total: ${formatINR(unitPrice * quantity)}`)
   }
@@ -62,7 +65,10 @@ export function buildOrderMessage({
   const cleanNote = note?.trim()
   if (cleanNote) lines.push(`Note: ${cleanNote}`)
 
-  lines.push('', 'Please confirm availability, delivery and the total. Thank you!')
+  lines.push(
+    '',
+    `Delivery is charged at ₹${business.delivery.ratePerKm} per km. Please confirm availability, the distance and the total. Thank you!`,
+  )
 
   return lines.join('\n')
 }
@@ -87,7 +93,8 @@ function formatBagLine(item: BagMessageItem): string {
 
   let pricePart = ''
   if (priced) {
-    const rate = item.unit === 'piece' ? `${formatINR(price)}/piece` : formatINR(price)
+    const per = item.unit === 'piece' ? 'piece' : item.portion
+    const rate = per ? `${formatINR(price)}/${per}` : formatINR(price)
     pricePart = ` @ ${rate} = ${formatINR(price * item.quantity)}`
   }
 
@@ -117,7 +124,10 @@ export function buildBagMessage(items: BagMessageItem[]): string {
   const total = totalLine(items)
   if (total) lines.push('', total)
 
-  lines.push('', 'Please confirm availability, delivery and the final total. Thank you!')
+  lines.push(
+    '',
+    `Delivery is charged at ₹${business.delivery.ratePerKm} per km. Please confirm availability, the distance and the final total. Thank you!`,
+  )
 
   return lines.join('\n')
 }
@@ -166,7 +176,10 @@ export function buildCheckoutMessage(items: BagMessageItem[], customer: Customer
 
   if (customer.email?.trim()) lines.push(`Email: ${customer.email.trim()}`)
 
-  lines.push('', 'Please confirm availability, delivery and the final total. Thank you!')
+  lines.push(
+    '',
+    `Delivery is charged at ₹${business.delivery.ratePerKm} per km. Please confirm availability, the distance and the final total. Thank you!`,
+  )
 
   return lines.join('\n')
 }

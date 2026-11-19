@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, MapPin, Plus, X } from 'lucide-react'
 import { images } from '../../data/images'
+import { resolveMediaUrl } from '../../lib/api'
 import { useLockBodyScroll } from '../../hooks/useLockBodyScroll'
 import { CONTACT_PATH } from '../../lib/router'
 import { SectionHeading } from '../ui/SectionHeading'
@@ -184,7 +185,7 @@ export function Gallery({ headingLevel = 2 }: { headingLevel?: 1 | 2 }) {
 
             <figure className="flex max-h-full flex-col items-center">
               <img
-                src={active.src}
+                src={resolveMediaUrl(active.src)}
                 alt={active.alt}
                 className="max-h-[72svh] w-auto max-w-full border border-cream/10 object-contain"
               />

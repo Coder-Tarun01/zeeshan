@@ -6,8 +6,9 @@ __pycache__
 .pytest_cache
 .mypy_cache
 
-# local databases + secrets never belong in an image
+# local databases, uploads and secrets never belong in an image
 *.db
 *.db-shm
 *.db-wal
+uploads
 .env

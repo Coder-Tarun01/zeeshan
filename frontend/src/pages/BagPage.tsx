@@ -14,9 +14,10 @@ import { useBag } from '../components/order/BagContext'
 import { SiteLayout } from '../components/layout/SiteLayout'
 import { SmartImage } from '../components/ui/SmartImage'
 import { useMenu } from '../components/menu/MenuContext'
-import { PORTIONS, type Portion } from '../data/menu'
+import { unitSuffix, variantOptions, type Variant } from '../data/menu'
 import { business } from '../data/site'
 import { formatINR, lineAmount, subtotalOf } from '../lib/price'
+import { categoryLabelFor } from '../lib/menuStore'
 import { buildBagMessage } from '../lib/whatsapp'
 import { CHECKOUT_PATH, HOME_PATH, MENU_PATH, navigate } from '../lib/router'
 
@@ -28,10 +29,9 @@ function LineAmount({ unitPrice, quantity }: { unitPrice: number | null; quantit
 
 export function BagPage() {
   const { items, count, updateQuantity, changePortion, removeItem, clearBag } = useBag()
-  const { getByName } = useMenu()
+  const { getByName, categories } = useMenu()
   const messagePreview = buildBagMessage(items)
   const totals = subtotalOf(items)
-  const deliveryFree = totals.allPriced && totals.amount >= business.delivery.threshold
 
   /** A line whose item the kitchen has marked sold out. */
   const isSoldOut = (name: string) => {
@@ -154,7 +154,7 @@ export function BagPage() {
                             )}
                             {item.category && (
                               <p className="mt-1 text-[8.5px] uppercase tracking-[0.16em] text-cream/35">
-                                {item.category}
+                                {categoryLabelFor(categories, item.category)}
                               </p>
                             )}
                             {item.note && (
@@ -171,7 +171,7 @@ export function BagPage() {
                             {typeof item.unitPrice === 'number' && (
                               <span className="text-[9.5px] uppercase tracking-[0.14em] text-cream/40">
                                 {formatINR(item.unitPrice)}
-                                {item.unit === 'piece' ? ' / piece' : ` / ${item.portion}`}
+                                {` / ${unitSuffix(item.unit, item.portion)}`}
                               </span>
                             )}
                             <button
@@ -208,29 +208,29 @@ export function BagPage() {
                             </button>
                           </div>
 
-                          {item.unit === 'weight' ? (
+                          {item.unit !== 'piece' ? (
                             <>
                               <label className="sr-only" htmlFor={`portion-${item.id}`}>
-                                Weight for {item.name}
+                                {item.unit === 'plate' ? 'Plate size' : 'Weight'} for {item.name}
                               </label>
                               <select
                                 id={`portion-${item.id}`}
                                 value={item.portion ?? ''}
                                 onChange={(event) =>
-                                  changePortion(item.id, event.target.value as Portion)
+                                  changePortion(item.id, event.target.value as Variant)
                                 }
                                 className="h-9 cursor-pointer border border-cream/15 bg-ink px-2.5 text-[9.5px] uppercase tracking-[0.12em] text-cream/70 outline-none transition-colors duration-300 hover:border-gold/40 focus:border-gold/60"
                               >
-                                {PORTIONS.map((size) => (
-                                  <option key={size} value={size} className="bg-night text-cream">
-                                    {size}
+                                {variantOptions(item.unit).map((choice) => (
+                                  <option key={choice} value={choice} className="bg-night text-cream">
+                                    {choice}
                                   </option>
                                 ))}
                               </select>
                             </>
                           ) : (
                             <span className="inline-flex h-9 items-center border border-cream/15 px-2.5 text-[9.5px] uppercase tracking-[0.12em] text-cream/45">
-                              Per piece
+                              Per {unitSuffix(item.unit)}
                             </span>
                           )}
                         </div>
@@ -261,9 +261,7 @@ export function BagPage() {
                       <div className="flex items-center justify-between gap-4">
                         <dt className="text-cream/45">Delivery</dt>
                         <dd className="text-gold/90">
-                          {deliveryFree
-                            ? 'Free'
-                            : `Free above ${formatINR(business.delivery.threshold)}`}
+                          {formatINR(business.delivery.ratePerKm)} per km
                         </dd>
                       </div>
                     </dl>
@@ -277,9 +275,10 @@ export function BagPage() {
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] leading-relaxed text-cream/35">
-                      {deliveryFree
-                        ? 'Delivery is free on this order. We confirm the final amount on WhatsApp before any payment.'
-                        : `Delivery is free above ${formatINR(business.delivery.threshold)}. We confirm the delivery charge and final amount on WhatsApp before any payment.`}
+                      Delivery is charged at {formatINR(business.delivery.ratePerKm)} per km and added
+                      to the total — for example {business.delivery.exampleKm} km ={' '}
+                      {formatINR(business.delivery.exampleCharge)}. We confirm the distance and final
+                      amount on WhatsApp before any payment.
                     </p>
 
                     <div className="mt-5 flex items-start gap-3 border border-gold/30 bg-gold/[0.06] p-4">

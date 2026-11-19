@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Run as a non-root user.
 RUN useradd --create-home --uid 10001 appuser
 
+# Upload directory must be writable by that user. Creating it in the image also makes
+# a fresh named volume inherit the ownership (Docker copies the directory on first use).
+RUN mkdir -p /app/uploads && chown -R appuser:appuser /app/uploads
+
 COPY app ./app
 COPY tests ./tests
 

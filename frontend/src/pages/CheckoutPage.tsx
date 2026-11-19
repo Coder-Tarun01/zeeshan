@@ -4,6 +4,7 @@ import { useBag } from '../components/order/BagContext'
 import { SiteLayout } from '../components/layout/SiteLayout'
 import { useMenu } from '../components/menu/MenuContext'
 import { business } from '../data/site'
+import { unitSuffix } from '../data/menu'
 import { formatINR, lineAmount, subtotalOf } from '../lib/price'
 import { checkoutWhatsAppUrl, type CustomerDetails } from '../lib/whatsapp'
 import { normalizeMobile } from '../lib/phone'
@@ -143,7 +144,6 @@ export function CheckoutPage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [sentUrl, setSentUrl] = useState<string | null>(null)
   const totals = subtotalOf(items)
-  const deliveryFree = totals.allPriced && totals.amount >= business.delivery.threshold
 
   /** Lines the kitchen has marked sold out since they were added. */
   const soldOutItems = items.filter((item) => {
@@ -512,7 +512,7 @@ export function CheckoutPage() {
                             <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-cream/35">
                               {item.unit === 'piece'
                                 ? `${item.quantity} ${item.quantity === 1 ? 'piece' : 'pieces'}`
-                                : `${item.quantity} × ${item.portion}`}
+                                : `${item.quantity} × ${unitSuffix(item.unit, item.portion)}`}
                             </p>
                           </div>
                           <span className="shrink-0 text-[13px] font-semibold text-cream/80">
@@ -538,9 +538,7 @@ export function CheckoutPage() {
                       <div className="flex items-center justify-between gap-3">
                         <dt className="text-cream/45">Delivery</dt>
                         <dd className="text-gold/90">
-                          {deliveryFree
-                            ? 'Free'
-                            : `Free above ${formatINR(business.delivery.threshold)}`}
+                          {formatINR(business.delivery.ratePerKm)} per km
                         </dd>
                       </div>
                     </dl>
@@ -554,9 +552,10 @@ export function CheckoutPage() {
                       </span>
                     </div>
                     <p className="mt-2 text-[11px] leading-relaxed text-cream/35">
-                      {deliveryFree
-                        ? 'Delivery is free on this order. We confirm the final amount on WhatsApp before any payment.'
-                        : `Delivery is free above ${formatINR(business.delivery.threshold)}. We confirm the delivery charge and final amount on WhatsApp before any payment.`}
+                      Delivery is charged at {formatINR(business.delivery.ratePerKm)} per km and added
+                      to the total — for example {business.delivery.exampleKm} km ={' '}
+                      {formatINR(business.delivery.exampleCharge)}. We confirm the distance and final
+                      amount on WhatsApp before any payment.
                     </p>
 
                     <div className="mt-4 flex items-start gap-3 border border-gold/30 bg-gold/[0.06] p-4">

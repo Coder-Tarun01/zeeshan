@@ -9,12 +9,17 @@ import {
   type ReactNode,
 } from 'react'
 import type { SiteImage } from '../../data/images'
-import type { MenuCategoryId, MenuItem, MenuPricing } from '../../data/menu'
+import type { MenuCategory, MenuCategoryId, MenuItem, MenuPricing } from '../../data/menu'
 import {
+  CATEGORY_STORAGE_KEY,
   MENU_STORAGE_KEY,
+  defaultCategories,
   defaultMenu,
+  persistCategories,
   persistMenu,
+  readStoredCategories,
   readStoredMenu,
+  uniqueCategoryId,
   uniqueId,
 } from '../../lib/menuStore'
 
@@ -29,15 +34,29 @@ export interface MenuItemDraft {
   available: boolean
 }
 
+/** Everything the admin panel can set on a category. */
+export interface CategoryDraft {
+  label: string
+  description?: string
+}
+
+/** Why a delete was refused — the panel turns this into a message. */
+export type CategoryRemoval = 'removed' | 'in-use' | 'last'
+
 interface MenuContextValue {
   items: MenuItem[]
   soldOutCount: number
+  categories: MenuCategory[]
   getById: (id: string) => MenuItem | undefined
   getByName: (name: string) => MenuItem | undefined
   addItem: (draft: MenuItemDraft) => MenuItem | null
   updateItem: (id: string, draft: MenuItemDraft) => boolean
   removeItem: (id: string) => void
   setAvailability: (id: string, available: boolean) => void
+  addCategory: (draft: CategoryDraft) => MenuCategory | null
+  updateCategory: (id: string, draft: CategoryDraft) => boolean
+  removeCategory: (id: string) => CategoryRemoval
+  moveCategory: (id: string, direction: -1 | 1) => void
   resetMenu: () => void
 }
 
@@ -45,10 +64,23 @@ const MenuContext = createContext<MenuContextValue | null>(null)
 
 const nameKey = (value: string) => value.trim().toLowerCase()
 
+/**
+ * Keeps items filed under a category the panel still knows about — an id from
+ * stale storage falls back to the first category instead of orphaning the item.
+ */
+function resolveCategory(id: string, categories: MenuCategory[]): MenuCategoryId {
+  if (categories.some((category) => category.id === id)) return id
+  return categories[0]?.id ?? id
+}
+
 export function MenuProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<MenuItem[]>(() => readStoredMenu())
   const itemsRef = useRef(items)
   itemsRef.current = items
+
+  const [categories, setCategories] = useState<MenuCategory[]>(() => readStoredCategories())
+  const categoriesRef = useRef(categories)
+  categoriesRef.current = categories
 
   /** Single write path: state + storage stay in step. */
   const commit = useCallback((next: MenuItem[]) => {
@@ -57,13 +89,27 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     persistMenu(next)
   }, [])
 
+  const commitCategories = useCallback((next: MenuCategory[]) => {
+    categoriesRef.current = next
+    setCategories(next)
+    persistCategories(next)
+  }, [])
+
   /* Keep other tabs of the same browser in sync. */
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== MENU_STORAGE_KEY) return
-      const next = readStoredMenu()
-      itemsRef.current = next
-      setItems(next)
+      if (event.key === MENU_STORAGE_KEY) {
+        const next = readStoredMenu()
+        itemsRef.current = next
+        setItems(next)
+        return
+      }
+
+      if (event.key === CATEGORY_STORAGE_KEY) {
+        const next = readStoredCategories()
+        categoriesRef.current = next
+        setCategories(next)
+      }
     }
 
     window.addEventListener('storage', onStorage)
@@ -90,7 +136,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       const item: MenuItem = {
         id: uniqueId(name, itemsRef.current),
         name,
-        category: draft.category,
+        category: resolveCategory(draft.category, categoriesRef.current),
         description: draft.description.trim(),
         pricing: draft.pricing,
         image: draft.image,
@@ -120,7 +166,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
             ? {
                 ...item,
                 name,
-                category: draft.category,
+                category: resolveCategory(draft.category, categoriesRef.current),
                 description: draft.description.trim(),
                 pricing: draft.pricing,
                 image: draft.image,
@@ -146,7 +192,82 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     [commit],
   )
 
-  const resetMenu = useCallback(() => commit(defaultMenu()), [commit])
+  const resetMenu = useCallback(() => {
+    commit(defaultMenu())
+    commitCategories(defaultCategories())
+  }, [commit, commitCategories])
+
+  const addCategory = useCallback(
+    (draft: CategoryDraft) => {
+      const label = draft.label.trim().slice(0, 28)
+      if (label.length < 2) return null
+      if (categoriesRef.current.some((category) => nameKey(category.label) === nameKey(label))) {
+        return null
+      }
+
+      const description = draft.description?.trim().slice(0, 90)
+      const category: MenuCategory = {
+        id: uniqueCategoryId(label, categoriesRef.current),
+        label,
+        ...(description ? { description } : {}),
+      }
+
+      commitCategories([...categoriesRef.current, category])
+      return category
+    },
+    [commitCategories],
+  )
+
+  const updateCategory = useCallback(
+    (id: string, draft: CategoryDraft) => {
+      if (!categoriesRef.current.some((category) => category.id === id)) return false
+
+      const label = draft.label.trim().slice(0, 28)
+      if (label.length < 2) return false
+
+      const clash = categoriesRef.current.some(
+        (category) => category.id !== id && nameKey(category.label) === nameKey(label),
+      )
+      if (clash) return false
+
+      const description = draft.description?.trim().slice(0, 90)
+
+      commitCategories(
+        categoriesRef.current.map((category) =>
+          category.id === id
+            ? { id: category.id, label, ...(description ? { description } : {}) }
+            : category,
+        ),
+      )
+      return true
+    },
+    [commitCategories],
+  )
+
+  const removeCategory = useCallback(
+    (id: string): CategoryRemoval => {
+      if (categoriesRef.current.length <= 1) return 'last'
+      if (itemsRef.current.some((item) => item.category === id)) return 'in-use'
+
+      commitCategories(categoriesRef.current.filter((category) => category.id !== id))
+      return 'removed'
+    },
+    [commitCategories],
+  )
+
+  const moveCategory = useCallback(
+    (id: string, direction: -1 | 1) => {
+      const list = [...categoriesRef.current]
+      const index = list.findIndex((category) => category.id === id)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= list.length) return
+
+      const [moved] = list.splice(index, 1)
+      list.splice(target, 0, moved)
+      commitCategories(list)
+    },
+    [commitCategories],
+  )
 
   const soldOutCount = useMemo(
     () => items.reduce((total, item) => total + (item.available ? 0 : 1), 0),
@@ -157,23 +278,33 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     () => ({
       items,
       soldOutCount,
+      categories,
       getById,
       getByName,
       addItem,
       updateItem,
       removeItem,
       setAvailability,
+      addCategory,
+      updateCategory,
+      removeCategory,
+      moveCategory,
       resetMenu,
     }),
     [
       items,
       soldOutCount,
+      categories,
       getById,
       getByName,
       addItem,
       updateItem,
       removeItem,
       setAvailability,
+      addCategory,
+      updateCategory,
+      removeCategory,
+      moveCategory,
       resetMenu,
     ],
   )

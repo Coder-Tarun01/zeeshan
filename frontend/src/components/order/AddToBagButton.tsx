@@ -1,29 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Check, Plus } from 'lucide-react'
 import { useBag } from './BagContext'
 import { useMenu } from '../menu/MenuContext'
 import type { SiteImage } from '../../data/images'
-import { DEFAULT_PORTION, priceFor, type Portion } from '../../data/menu'
+import { defaultVariant, priceFor, unitSuffix, type Variant } from '../../data/menu'
 import { cn } from '../../lib/cn'
 
-type Variant = 'outline' | 'solid' | 'text' | 'chip' | 'icon'
+type ButtonVariant = 'outline' | 'solid' | 'text' | 'chip' | 'icon'
 
 interface AddToBagButtonProps {
   item: string
   category?: string
   image?: SiteImage
-  /** Weight for by-weight items (defaults to 250g). Ignored for per-piece items. */
-  portion?: Portion
+  /** Weight or plate size for by-size items (defaults to 250g / full). Ignored per piece. */
+  portion?: Variant
   /** Label override for the idle state, e.g. "Add" or the item name. */
   label?: string
-  variant?: Variant
+  variant?: ButtonVariant
   className?: string
 }
 
 const base =
   'inline-flex shrink-0 items-center justify-center gap-1.5 font-semibold uppercase tracking-[0.18em] transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-40'
 
-const variants: Record<Variant, string> = {
+const variants: Record<ButtonVariant, string> = {
   outline:
     'border border-gold/35 px-3.5 py-2.5 text-[9px] text-gold hover:border-gold hover:bg-gold hover:text-ink',
   solid:
@@ -33,7 +33,7 @@ const variants: Record<Variant, string> = {
   icon: 'h-8 w-8 border border-cream/15 text-cream/50 hover:border-gold/60 hover:text-gold',
 }
 
-const addedStyles: Record<Variant, string> = {
+const addedStyles: Record<ButtonVariant, string> = {
   outline: 'border-gold bg-gold text-ink',
   solid: 'brightness-110',
   text: 'text-gold-light',
@@ -51,7 +51,7 @@ export function AddToBagButton({
   image,
   portion,
   label,
-  variant = 'outline',
+  variant: buttonVariant = 'outline',
   className,
 }: AddToBagButtonProps) {
   const { addItem } = useBag()
@@ -65,9 +65,9 @@ export function AddToBagButton({
   const soldOut = Boolean(menuItem) && !menuItem?.available
   const unavailable = !menuItem || soldOut
   const unit = menuItem?.pricing.unit ?? 'piece'
-  const selectedPortion = unit === 'weight' ? (portion ?? DEFAULT_PORTION) : undefined
+  const selectedPortion = unit === 'piece' ? undefined : (portion ?? defaultVariant(unit))
   const unitPrice = menuItem ? priceFor(menuItem, selectedPortion) : null
-  const unitLabel = selectedPortion ?? '1 piece'
+  const unitLabel = unit === 'piece' ? '1 piece' : unitSuffix(unit, selectedPortion)
 
   const handleClick = () => {
     if (unavailable) return
@@ -86,7 +86,7 @@ export function AddToBagButton({
     timer.current = window.setTimeout(() => setAdded(false), 1600)
   }
 
-  const isIcon = variant === 'icon'
+  const isIcon = buttonVariant === 'icon'
 
   return (
     <button
@@ -102,7 +102,7 @@ export function AddToBagButton({
               ? `${item} ${unitLabel} added to your order list`
               : `Add ${item} ${unitLabel} to your order list`
       }
-      className={cn(base, variants[variant], added && addedStyles[variant], className)}
+      className={cn(base, variants[buttonVariant], added && addedStyles[buttonVariant], className)}
     >
       {added ? (
         <Check className={isIcon ? 'h-4 w-4' : 'h-3.5 w-3.5'} aria-hidden="true" />
@@ -113,3 +113,4 @@ export function AddToBagButton({
     </button>
   )
 }
+
